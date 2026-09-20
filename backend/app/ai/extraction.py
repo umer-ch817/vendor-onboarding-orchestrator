@@ -83,7 +83,7 @@ class DocumentExtractionService:
         except AIValidationFailure as exc:
             logger.warning(
                 "document_classification_invalid",
-                extra={"filename": filename, "errors": exc.validation_errors},
+                extra={"document_filename": filename, "errors": exc.validation_errors},
             )
             return None, None, "model returned unclassifiable output"
         except LLMUnavailableError as exc:
@@ -124,7 +124,7 @@ class DocumentExtractionService:
             logger.warning(
                 "document_extraction_invalid",
                 extra={
-                    "filename": filename,
+                    "document_filename": filename,
                     "document_type": document_type,
                     "errors": exc.validation_errors,
                 },
@@ -142,7 +142,7 @@ class DocumentExtractionService:
         except LLMUnavailableError as exc:
             logger.error(
                 "document_extraction_unavailable",
-                extra={"filename": filename, "error": str(exc)},
+                extra={"document_filename": filename, "error": str(exc)},
             )
             return ExtractionOutcome(
                 success=False,
@@ -177,7 +177,7 @@ class DocumentExtractionService:
             logger.info(
                 "document_extraction_low_confidence",
                 extra={
-                    "filename": filename,
+                    "document_filename": filename,
                     "document_confidence": result.document_confidence,
                     "low_confidence_fields": low_confidence,
                 },

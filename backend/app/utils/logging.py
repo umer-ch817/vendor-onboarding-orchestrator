@@ -8,6 +8,23 @@ from typing import Any
 from app.config import settings
 
 
+RESERVED_LOG_RECORD_ATTRS: frozenset[str] = frozenset(
+    {
+        "name", "msg", "args", "levelname", "levelno", "pathname",
+        "filename", "module", "exc_info", "exc_text", "stack_info",
+        "lineno", "funcName", "created", "msecs", "relativeCreated",
+        "thread", "threadName", "processName", "process", "message",
+        "taskName", "asctime",
+    }
+)
+"""Keys that ``logging`` puts on every LogRecord.
+
+Passing one of these in ``extra=`` raises
+``KeyError: Attempt to overwrite 'x' in LogRecord`` and kills the request,
+so call sites must never use them. ``test_regressions`` enforces this.
+"""
+
+
 class JSONFormatter(logging.Formatter):
     """JSON log formatter for structured logging"""
 
@@ -24,13 +41,7 @@ class JSONFormatter(logging.Formatter):
 
         # Add extra fields
         for key, value in record.__dict__.items():
-            if key not in (
-                "name", "msg", "args", "levelname", "levelno", "pathname",
-                "filename", "module", "exc_info", "exc_text", "stack_info",
-                "lineno", "funcName", "created", "msecs", "relativeCreated",
-                "thread", "threadName", "processName", "process", "message",
-                "taskName"
-            ):
+            if key not in RESERVED_LOG_RECORD_ATTRS:
                 log_data[key] = value
 
         if record.exc_info:

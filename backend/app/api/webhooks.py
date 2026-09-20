@@ -303,7 +303,7 @@ async def n8n_incident(
             "event_type": event_type,
             "workflow": payload.workflow,
             "node": payload.node,
-            "message": payload.message,
+            "incident_message": payload.message,
         },
     )
     return {

@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     # AI Provider
     LLM_PROVIDER: str = "mock"  # openai | mock
     OPENAI_API_KEY: Optional[str] = None
+    # Leave unset to use api.openai.com. Set it to point at any
+    # OpenAI-compatible endpoint, e.g. http://localhost:20128/v1
+    OPENAI_BASE_URL: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4o-mini"
     LLM_MAX_RETRIES: int = 3
     LLM_TIMEOUT_SECONDS: int = 60

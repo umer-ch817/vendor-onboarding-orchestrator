@@ -15,7 +15,7 @@
         "timezone": "UTC",
         "options": {}
       },
-      "id": "e8ccf8ff-e798-4e11-be0f-c026dc96d6cd",
+      "id": "f06b29a5-e6c1-4d23-a3d2-0cb9c6c4a689",
       "name": "Schedule",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -32,31 +32,31 @@
         "assignments": {
           "assignments": [
             {
-              "id": "93458e31-4927-460b-baba-939c867b5fb3",
+              "id": "7ae734a0-bcd6-48b8-8679-074e00123688",
               "name": "backend_base_url",
               "value": "={{ $env.VOR_BACKEND_URL }}",
               "type": "string"
             },
             {
-              "id": "70779d23-7b95-4158-8200-e57b3af13ab2",
+              "id": "c1abbc6e-49f3-43a1-a930-91aa3febee27",
               "name": "notification_base_url",
               "value": "={{ $env.VOR_NOTIFICATION_URL }}",
               "type": "string"
             },
             {
-              "id": "099832c0-5873-4634-a2a2-afb9690d7c44",
+              "id": "f5372562-a07e-4658-aa93-cb0109e389ec",
               "name": "callback_secret",
               "value": "={{ $env.VOR_CALLBACK_SECRET }}",
               "type": "string"
             },
             {
-              "id": "fb96dac8-94e0-42fe-a8b7-2da3cb7af4bc",
+              "id": "95ec9231-b18f-47df-b562-991eea3c11ce",
               "name": "warning_hours",
               "value": "24",
               "type": "string"
             },
             {
-              "id": "35c3503e-9202-4988-ad04-dccd8119b840",
+              "id": "e421a202-7070-46b6-8c45-e3055ab20202",
               "name": "escalation_hours",
               "value": "72",
               "type": "string"
@@ -65,7 +65,7 @@
         },
         "options": {}
       },
-      "id": "3c232817-7eed-4df9-8140-8a332aedf3d2",
+      "id": "0ca418fb-bad0-47e1-b543-5cef819ee0cd",
       "name": "Workflow Settings",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -80,7 +80,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "const settings = $('Workflow Settings').first().json;\n\nconst out = [];\nfor (const item of $input.all()) {\n  const base = String(settings.backend_base_url).replace(/\\/$/, '');\n  out.push({\n    json: {\n      warning_url: base + '/api/exceptions/summary',\n      escalation_url: base + '/api/exceptions/summary',\n      backend_base_url: base,\n      callback_secret: settings.callback_secret,\n      warning_hours: Number(settings.warning_hours || 24),\n      escalation_hours: Number(settings.escalation_hours || 72),\n    },\n  });\n}\nreturn out;"
       },
-      "id": "f449ff36-365c-4612-aead-214e8aa526bc",
+      "id": "27e57c08-8435-4549-892e-5dd1662d88b6",
       "name": "Build SLA Query",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -95,10 +95,10 @@
         "method": "GET",
         "url": "={{ $json.warning_url }}",
         "options": {
-          "timeout": 30000
+          "timeout": 180000
         }
       },
-      "id": "e1b7609e-9384-4101-b7fb-48775fd41b4b",
+      "id": "3d3b411f-ac90-411a-aa3a-3f5289786522",
       "name": "Get Exception Summary",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -117,7 +117,7 @@
         "method": "POST",
         "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/webhooks/n8n",
         "options": {
-          "timeout": 30000
+          "timeout": 180000
         },
         "sendHeaders": true,
         "headerParameters": {
@@ -132,7 +132,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({event_type: 'RETRY_EXHAUSTED', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({stage: 'sla_summary', detail: 'Exception summary call failed after 2 attempts.'}))}) }}"
       },
-      "id": "242b3558-72bc-49c1-a300-9ed5acf51609",
+      "id": "d1ae8758-07bf-40c4-a33f-3fe9be7c8545",
       "name": "Record Summary Failure",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -148,7 +148,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// The summary endpoint returns counts by severity and age. The workflow\n// escalates cases whose oldest pending exception exceeds the escalation\n// threshold. A warning is logged for cases approaching the threshold.\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json || {};\n  const err = j.error || null;\n  const status = Number(j.statusCode || (err && (err.httpCode || err.status)) || 0);\n  const ok = !err && status >= 200 && status < 300;\n\n  if (!ok) {\n    out.push({\n      json: {\n        state: 'failed',\n        http_status: status,\n        detail: 'Summary call failed with HTTP ' + status + '.',\n      },\n    });\n    continue;\n  }\n\n  // The mock returns a shape the code below expects. A real backend would\n  // return a structured list; the mock is simple. In production this node\n  // would loop over the cases and triage each one.\n  out.push({\n    json: Object.assign({}, j, {\n      state: 'completed',\n      warning_hours: $json.warning_hours,\n      escalation_hours: $json.escalation_hours,\n    }),\n  });\n}\nreturn out;"
       },
-      "id": "cb6f736e-99ad-40a6-bddf-0d0dddfdf38c",
+      "id": "52597540-b1e5-4991-8c2f-a6729007a1e8",
       "name": "Interpret SLA",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -169,7 +169,7 @@
           },
           "conditions": [
             {
-              "id": "74004e81-1af7-41d6-862d-4907d6a832db",
+              "id": "965867cf-4b9a-4476-8893-930e99ff6346",
               "leftValue": "={{ $json.state }}",
               "rightValue": "completed",
               "operator": {
@@ -182,7 +182,7 @@
         },
         "options": {}
       },
-      "id": "c0614494-0ff9-4511-9f0a-182d7fd70aa8",
+      "id": "5016da81-90e7-4b28-8b57-46dc142501b3",
       "name": "Summary Ok?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -197,7 +197,7 @@
         "method": "POST",
         "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/webhooks/n8n",
         "options": {
-          "timeout": 30000
+          "timeout": 180000
         },
         "sendHeaders": true,
         "headerParameters": {
@@ -212,7 +212,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({event_type: 'SLA_WARNING', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({warning_hours: $json.warning_hours, escalation_hours: $json.escalation_hours, detail: 'SLA check completed; warnings and escalations recorded on individual exceptions.'}))}) }}"
       },
-      "id": "e4511897-f8f3-4d1b-a4f9-9c9282879139",
+      "id": "d809e0cf-4216-4477-9612-9f98a518195e",
       "name": "Record SLA Warning",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -230,7 +230,7 @@
         "width": 520,
         "color": 4
       },
-      "id": "9a9e3d94-3632-46bf-837a-cc88cbafbd65",
+      "id": "634bb977-d608-4658-891e-3f03f796dea7",
       "name": "Note 1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,

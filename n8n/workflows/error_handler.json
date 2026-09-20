@@ -4,7 +4,7 @@
   "nodes": [
     {
       "parameters": {},
-      "id": "393e42d5-334b-400e-a2ed-c2b73c9bea0b",
+      "id": "d6366828-4bd9-4455-b67d-18a186521873",
       "name": "Error Triggered",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1.2,
@@ -21,19 +21,19 @@
         "assignments": {
           "assignments": [
             {
-              "id": "0fa24f37-1265-4c5b-8c17-f186d360681c",
+              "id": "78acdaca-6cd8-4f76-af6a-d7d27235677e",
               "name": "backend_base_url",
               "value": "={{ $env.VOR_BACKEND_URL }}",
               "type": "string"
             },
             {
-              "id": "388ae8e0-af2a-4ff1-8b45-152a3b116215",
+              "id": "bea5d74d-a3ef-4b5d-bfba-899d30112184",
               "name": "notification_base_url",
               "value": "={{ $env.VOR_NOTIFICATION_URL }}",
               "type": "string"
             },
             {
-              "id": "5a1ab694-04c3-4898-9b97-1e62478d03a5",
+              "id": "cb69f203-0695-4d11-8b2f-08684d451fb8",
               "name": "callback_secret",
               "value": "={{ $env.VOR_CALLBACK_SECRET }}",
               "type": "string"
@@ -42,7 +42,7 @@
         },
         "options": {}
       },
-      "id": "4de51e5f-ffb4-47af-b8f0-852ec24f124f",
+      "id": "f00b84a2-614c-4852-905f-b52bcebddcd0",
       "name": "Workflow Settings",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -57,7 +57,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// The error trigger provides a structured payload describing what failed.\n// This node normalises it into the incident schema.\nconst execution = $input.first().json;\nconst workflowName = execution.workflow?.name || 'unknown';\nconst executionId = execution.id || 'unknown';\nconst nodeName = execution.node?.name || 'unknown';\nconst nodeType = execution.node?.type || 'unknown';\nconst errorMessage = execution.error?.message || String(execution.error) || 'unknown error';\nconst lastNode = execution.lastNode || nodeName;\n\nconst out = [{\n  json: {\n    event_type: 'WORKFLOW_FAILED',\n    workflow: workflowName,\n    execution_id: executionId,\n    node: lastNode,\n    message: errorMessage,\n    data: {\n      node_type: nodeType,\n      input_summary: execution.inputData ? Object.keys(execution.inputData).length : 0,\n    },\n    // The error trigger payload does not include a case_id. If the failed\n    // workflow had one in its data, it would be in execution.data.case_id.\n    case_id: execution.data?.case_id || null,\n  },\n}];\nreturn out;"
       },
-      "id": "3e1866bd-5de9-4cc1-b7ab-42658870b9e2",
+      "id": "9154116e-1f52-4d61-bafa-3dd02a042c77",
       "name": "Interpret Error",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -72,7 +72,7 @@
         "method": "POST",
         "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/webhooks/n8n/incident",
         "options": {
-          "timeout": 30000
+          "timeout": 180000
         },
         "sendHeaders": true,
         "headerParameters": {
@@ -87,7 +87,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json) }}"
       },
-      "id": "d37285d5-a689-4f38-8961-b8d5c2d9bab4",
+      "id": "53aec5c2-37d9-4b7e-a27b-9a2f2d9f9398",
       "name": "Record Incident",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -106,7 +106,7 @@
         "method": "POST",
         "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/webhooks/n8n",
         "options": {
-          "timeout": 30000
+          "timeout": 180000
         },
         "sendHeaders": true,
         "headerParameters": {
@@ -121,7 +121,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({event_type: 'RETRY_EXHAUSTED', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({stage: 'error_handler', detail: 'Incident recording failed after 3 attempts; the original workflow failure is now invisible in the audit trail.'}))}) }}"
       },
-      "id": "ccc31d2d-0585-4194-ab74-94f73c5c7b29",
+      "id": "dc924ff6-ab5f-4962-b56c-d0b754a38241",
       "name": "Record Incident Failure",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -137,7 +137,7 @@
         "method": "POST",
         "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/webhooks/n8n",
         "options": {
-          "timeout": 30000
+          "timeout": 180000
         },
         "sendHeaders": true,
         "headerParameters": {
@@ -152,7 +152,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({event_type: 'WORKFLOW_COMPLETED', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({outcome: 'incident_recorded', workflow: $json.workflow, node: $json.node, case_id: $json.case_id}))}) }}"
       },
-      "id": "dfbd3604-e744-46bb-943b-026b24edf401",
+      "id": "57665a40-344d-4aed-8d90-65bebad49756",
       "name": "Record Incident Success",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -170,7 +170,7 @@
         "width": 520,
         "color": 4
       },
-      "id": "323a1b46-ec5d-4267-b25c-9aa093a6859d",
+      "id": "dbf07a06-1754-471f-9366-538c7b939065",
       "name": "Note 1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,

@@ -169,7 +169,11 @@ def http_node(
     retry: bool = False,
     max_tries: int = 3,
     wait_ms: int = 2000,
-    timeout_ms: int = 30000,
+    # The backend endpoints these nodes call run LLM classification and
+    # extraction inline. With the mock provider that returns in milliseconds,
+    # but a real model can take well over 30s for one document -- and the node
+    # then reports RETRY_EXHAUSTED for a request that was simply still working.
+    timeout_ms: int = 180000,
 ) -> dict:
     params: dict = {"method": method.upper(), "url": url, "options": {}}
 
@@ -947,7 +951,10 @@ def workflow_document_intake() -> dict:
             "Process Document",
             (880, 0),
             method="POST",
-            url="={{ $('Workflow Settings').first().json.backend_base_url }}/api/documents/{{ $json.document_id }}/process",
+            # Reads the id from Validate Trigger, not from $json: this node is
+            # chained after a callback node whose payload has no document_id,
+            # so $json.document_id was empty and the URL 404'd.
+            url="={{ $('Workflow Settings').first().json.backend_base_url }}/api/documents/{{ $('Validate Trigger').first().json.document_id }}/process",
             full_response=True,
             notes="Runs classification and extraction. Retries on transient failure.",
             retry=True,
@@ -984,7 +991,7 @@ def workflow_document_intake() -> dict:
             "Verify Extraction",
             (1540, -340),
             method="POST",
-            url="={{ $('Workflow Settings').first().json.backend_base_url }}/api/documents/{{ $json.document_id }}/verify",
+            url="={{ $('Workflow Settings').first().json.backend_base_url }}/api/documents/{{ $('Validate Trigger').first().json.document_id }}/verify",
             json_body="={{ JSON.stringify({verified: true, actor_user_id: null}) }}",
             notes="Records human verification when extraction confidence was low.",
             retry=True,
@@ -1381,7 +1388,7 @@ def workflow_case_orchestrator() -> dict:
             "Submit Case",
             (880, 0),
             method="POST",
-            url="={{ $('Workflow Settings').first().json.backend_base_url }}/api/onboarding/{{ $json.case_id }}/submit",
+            url="={{ $('Workflow Settings').first().json.backend_base_url }}/api/onboarding/{{ $('Validate Trigger').first().json.case_id }}/submit",
             full_response=True,
             notes=(
                 "Moves the case from DRAFT into document collection. A 409 here "
@@ -1413,7 +1420,7 @@ def workflow_case_orchestrator() -> dict:
             "Run Assessment",
             (1540, -140),
             method="POST",
-            url="={{ $('Workflow Settings').first().json.backend_base_url }}/api/onboarding/{{ $json.case_id }}/assess",
+            url="={{ $('Workflow Settings').first().json.backend_base_url }}/api/onboarding/{{ $('Validate Trigger').first().json.case_id }}/assess",
             notes=(
                 "The one call that does real work. It runs the deterministic "
                 "rules, the explainable scorer, the document checks and the AI "

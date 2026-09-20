@@ -58,7 +58,7 @@ async def upload_document(
             extra={
                 "document_id": document.id,
                 "case_id": case_id,
-                "filename": file.filename,
+                "document_filename": file.filename,
                 "size": len(content),
             },
         )

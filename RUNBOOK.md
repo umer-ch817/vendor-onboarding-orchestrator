@@ -169,6 +169,33 @@ successful run on a fresh case produces, in order:
 
 > **Note:** From inside the n8n container, `host.docker.internal` reaches your host machine where the native backend runs on 8000. If you run n8n natively too, use `http://localhost:8000`.
 
+### Using a real LLM instead of the mock
+
+`LLM_PROVIDER=mock` needs no key and is instant. To use a real model, set in
+`.env`:
+
+```
+LLM_PROVIDER=openai
+OPENAI_API_KEY=<your key>
+OPENAI_BASE_URL=http://127.0.0.1:20128/v1   # any OpenAI-compatible gateway
+OPENAI_MODEL=auto/best-fast
+```
+
+Two things that will bite you:
+
+- **The workflow HTTP nodes time out at 180s.** They were 30s, which is fine for
+  the mock but not for a real model — one document takes ~40s, and a failed
+  node looks like `RETRY_EXHAUSTED` in the audit trail even though the request
+  was still working.
+- **Loopback must not go through an HTTP proxy.** If `HTTP_PROXY` is set, the
+  OpenAI SDK forwards localhost to it and you get `Connection error` /
+  redirect loops. The provider bypasses proxy env vars for loopback base URLs
+  automatically; if you add a gateway on a real hostname, put it in `no_proxy`.
+
+If the model is unavailable the pipeline degrades to the mock and marks the
+result degraded rather than failing the case — check
+`ai_degraded` on the assessment before trusting a run.
+
 ---
 
 ## Creating Demo Data

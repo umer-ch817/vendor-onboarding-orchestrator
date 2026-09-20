@@ -13,13 +13,16 @@ through :class:`LLMProvider`. That gives three things:
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import random
 import re
+import socket
 import time
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field
 
@@ -177,17 +180,54 @@ class LLMProvider(ABC):
             ) from exc
 
 
+def _targets_loopback(url: str | None) -> bool:
+    """True when a base URL points at this machine.
+
+    Loopback traffic must never be routed through an HTTP proxy. When
+    HTTP_PROXY/HTTPS_PROXY are set globally, httpx will happily forward a
+    localhost address to the proxy, which answers with redirect loops or a
+    refused connection instead of reaching the local gateway.
+    """
+    if not url:
+        return False
+    try:
+        host = urlparse(url).hostname
+    except ValueError:
+        return False
+    if not host:
+        return False
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        pass
+    try:
+        return ipaddress.ip_address(socket.gethostbyname(host)).is_loopback
+    except OSError:
+        return False
+
+
 class OpenAIProvider(LLMProvider):
     """OpenAI-backed provider."""
 
     name = "openai"
 
-    def __init__(self, api_key: str, model: str | None = None, **kwargs):
+    def __init__(
+        self,
+        api_key: str,
+        model: str | None = None,
+        base_url: str | None = None,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         if not api_key:
             raise ValueError("OpenAIProvider requires an API key")
         self.api_key = api_key
         self.model = model or settings.OPENAI_MODEL
+        # None means "use the SDK default" (api.openai.com). An explicit URL
+        # lets the same code talk to any OpenAI-compatible gateway.
+        self.base_url = base_url or settings.OPENAI_BASE_URL or None
         self._client = None
 
     @property
@@ -196,10 +236,21 @@ class OpenAIProvider(LLMProvider):
         if self._client is None:
             from openai import AsyncOpenAI
 
-            self._client = AsyncOpenAI(
-                api_key=self.api_key,
-                timeout=settings.LLM_TIMEOUT_SECONDS,
-            )
+            client_kwargs: dict[str, Any] = {
+                "api_key": self.api_key,
+                "timeout": settings.LLM_TIMEOUT_SECONDS,
+            }
+            # Only pass base_url when one is configured, so the SDK keeps its
+            # own default (api.openai.com) otherwise.
+            if self.base_url:
+                client_kwargs["base_url"] = self.base_url
+                if _targets_loopback(self.base_url):
+                    import httpx
+
+                    client_kwargs["http_client"] = httpx.AsyncClient(
+                        trust_env=False
+                    )
+            self._client = AsyncOpenAI(**client_kwargs)
         return self._client
 
     async def _call(
@@ -222,7 +273,21 @@ class OpenAIProvider(LLMProvider):
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
 
-        completion = await self.client.chat.completions.create(**kwargs)
+        try:
+            completion = await self.client.chat.completions.create(**kwargs)
+        except Exception as exc:
+            # Not every OpenAI-compatible gateway implements response_format.
+            # A gateway that does not will reject the whole request, so retry
+            # once without it and lean on parse_json() to find the object.
+            if not json_mode or getattr(exc, "status_code", None) != 400:
+                raise
+            logger.warning(
+                "llm_json_mode_unsupported",
+                extra={"model": self.model, "error": str(exc)[:200]},
+            )
+            kwargs.pop("response_format", None)
+            completion = await self.client.chat.completions.create(**kwargs)
+
         choice = completion.choices[0]
 
         return LLMResponse(
@@ -623,6 +688,7 @@ def get_provider(provider_name: str | None = None) -> LLMProvider:
         return OpenAIProvider(
             api_key=settings.OPENAI_API_KEY,
             model=settings.OPENAI_MODEL,
+            base_url=settings.OPENAI_BASE_URL,
         )
 
     if name == "mock":

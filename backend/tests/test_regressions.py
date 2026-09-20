@@ -235,3 +235,92 @@ def test_inbound_webhook_is_the_only_n8n_route_in_the_backend():
 def test_core_modules_import(module):
     """Import-time failures here were silent until a request hit them."""
     __import__(module)
+
+
+# ---------------------------------------------------------------------------
+# Defects found by running the real workflow end to end
+# ---------------------------------------------------------------------------
+
+
+def test_no_reserved_logrecord_keys_in_logger_extra():
+    """`logger.info(..., extra={"filename": ...})` raises
+    ``KeyError: Attempt to overwrite 'filename' in LogRecord`` and fails the
+    request. It took a real document upload to surface it, because every other
+    path through the code was exercised with the mock provider.
+
+    Scanned statically on purpose: the failure only happens on the branch that
+    logs, so no amount of happy-path testing would catch the next one.
+    """
+    import ast
+
+    from app.utils.logging import RESERVED_LOG_RECORD_ATTRS
+
+    app_dir = REPO_ROOT / "backend" / "app"
+    offenders: list[str] = []
+
+    for path in sorted(app_dir.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if not isinstance(func, ast.Attribute):
+                continue
+            if func.attr not in {"debug", "info", "warning", "error", "critical",
+                                  "exception", "log"}:
+                continue
+            for kw in node.keywords:
+                if kw.arg != "extra" or not isinstance(kw.value, ast.Dict):
+                    continue
+                for key_node in kw.value.keys:
+                    if (
+                        isinstance(key_node, ast.Constant)
+                        and key_node.value in RESERVED_LOG_RECORD_ATTRS
+                    ):
+                        offenders.append(
+                            f"{path.relative_to(REPO_ROOT)}:{node.lineno} "
+                            f"-> {key_node.value!r}"
+                        )
+
+    assert not offenders, (
+        "reserved LogRecord keys in extra= raise KeyError at runtime:/n"
+        + "\n".join(offenders)
+    )
+
+
+def test_workflow_urls_read_ids_from_the_trigger_node():
+    """Nodes that build a backend URL from ``$json.case_id`` or
+    ``$json.document_id`` 404'd. Those nodes are chained after a callback node
+    whose payload is ``{recorded, event_id, ...}`` -- no id -- so the URL came
+    out as ``/api/documents//process``.
+
+    The id has to come from the Validate Trigger node, which is what the rest
+    of each workflow already does.
+    """
+    offenders: list[str] = []
+    for path in sorted(WORKFLOW_DIR.glob("*.json")):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for node in data.get("nodes", []):
+            url = node.get("parameters", {}).get("url")
+            if not isinstance(url, str):
+                continue
+            if "{{ $json.case_id }}" in url or "{{ $json.document_id }}" in url:
+                offenders.append(f"{path.name}: {node.get('name')} -> {url}")
+
+    assert not offenders, (
+        "ids must be read from $('Validate Trigger'), not $json:/n"
+        + "\n".join(offenders)
+    )
+
+
+def test_openai_provider_accepts_a_custom_base_url():
+    """Without this the project can only ever talk to api.openai.com, so any
+    OpenAI-compatible gateway is unusable."""
+    from app.config import Settings
+
+    assert "OPENAI_BASE_URL" in Settings.model_fields
+
+    from app.ai.provider import OpenAIProvider
+
+    provider = OpenAIProvider(api_key="test-key", base_url="http://127.0.0.1:20128/v1")
+    assert provider.base_url == "http://127.0.0.1:20128/v1"
