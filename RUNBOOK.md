@@ -145,8 +145,13 @@ docker compose restart n8n
 Verify all four are live with
 `docker compose logs n8n | grep -i activated`.
 
-**Triggering it.** The backend does *not* call n8n — the orchestrator is
-entered through its own webhook:
+**Triggering it.** Apart from one endpoint, the backend does not call n8n —
+the orchestrator is entered through its own webhook. `POST
+/api/onboarding/{case_id}/start` exists so the UI can hand a case over without
+you opening n8n; it is the single outbound call in the codebase. Everything
+else still runs inbound (n8n calls submit / assess / approvals on us).
+
+To start it by hand:
 
 ```bash
 curl -X POST http://localhost:5678/webhook/vendor-onboarding/case \

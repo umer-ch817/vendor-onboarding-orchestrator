@@ -9,9 +9,11 @@ ever reaches the handler.
 """
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.models import RiskLevel, WorkflowStatus
 from app.schemas import (
@@ -235,3 +237,68 @@ async def assess_case(
 
 def _value(value) -> str:
     return value.value if hasattr(value, "value") else str(value)
+
+
+@router.post("/{case_id}/start")
+async def start_orchestration(
+    case_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """Hand a case to the n8n orchestrator.
+
+    This is the only place the backend calls n8n. Every other interaction runs
+    the other way: n8n drives the case by calling submit, assess, reviewers and
+    approvals back on us.
+
+    ``assess`` alone is enough to score and route a case, but it skips the parts
+    the workflow owns -- opening approvals, notifying reviewers, and the audit
+    events that mark the orchestration as started and finished. Bypassing n8n
+    is fine for testing the rules; it is not the same story end to end.
+    """
+    service = OnboardingService(db)
+    case = await service.get(case_id)
+    if case is None:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    url = f"{settings.N8N_WEBHOOK_URL.rstrip('/')}/webhook/vendor-onboarding/case"
+    payload = {
+        "case_id": case_id,
+        "vendor_id": case.vendor_id,
+        "action": "submit",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=payload)
+    except httpx.HTTPError as exc:
+        logger.error(
+            "orchestration_start_unreachable",
+            extra={"case_id": case_id, "error": str(exc)},
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Could not reach n8n at "
+                f"{settings.N8N_WEBHOOK_URL}. Is the container running?"
+            ),
+        )
+
+    if response.status_code >= 400:
+        logger.error(
+            "orchestration_start_rejected",
+            extra={"case_id": case_id, "status": response.status_code},
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"n8n rejected the trigger with HTTP {response.status_code}.",
+        )
+
+    logger.info(
+        "orchestration_started",
+        extra={"case_id": case_id, "vendor_id": case.vendor_id},
+    )
+    return {
+        "case_id": case_id,
+        "started": True,
+        "message": "Handed to the n8n orchestrator. It will submit, assess and route.",
+    }

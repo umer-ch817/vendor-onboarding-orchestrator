@@ -38,3 +38,6 @@ documents/uploads/
 .DS_Store
 Thumbs.db
 *.swp
+
+# scratch space for throwaway test inputs
+.tmp-test/

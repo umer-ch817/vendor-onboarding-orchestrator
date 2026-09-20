@@ -70,6 +70,7 @@ export function VendorDetailPage() {
 
   const submit = useMutation(() => onboardingApi.submit(caseId));
   const assess = useMutation(() => onboardingApi.assess(caseId));
+  const start = useMutation(() => onboardingApi.start(caseId));
 
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -128,6 +129,15 @@ export function VendorDetailPage() {
         actions={
           <>
             <button
+              className="btn btn-primary"
+              onClick={() => runAction(start.run)}
+              disabled={start.pending}
+              title="Hand this case to the n8n orchestrator: submit, assess, approve, notify"
+            >
+              <Play size={15} />
+              {start.pending ? 'Starting…' : 'Start onboarding'}
+            </button>
+            <button
               className="btn btn-secondary"
               onClick={() => runAction(assess.run)}
               disabled={assess.pending}
@@ -136,7 +146,7 @@ export function VendorDetailPage() {
               {assess.pending ? 'Assessing…' : 'Run assessment'}
             </button>
             <button
-              className="btn btn-primary"
+              className="btn btn-secondary"
               onClick={() => runAction(submit.run)}
               disabled={!isDraft || submit.pending}
               title={
@@ -152,10 +162,10 @@ export function VendorDetailPage() {
         }
       />
 
-      {(actionError || submit.error || assess.error) && (
+      {(actionError || submit.error || assess.error || start.error) && (
         <div className="callout callout-critical">
           <div className="callout-body">
-            {actionError || submit.error || assess.error}
+            {actionError || submit.error || assess.error || start.error}
           </div>
         </div>
       )}

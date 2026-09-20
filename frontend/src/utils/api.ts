@@ -110,6 +110,10 @@ export const onboardingApi = {
     ),
   assess: (id: number) =>
     client.post<Record<string, unknown>>(`/onboarding/${id}/assess`),
+  start: (id: number) =>
+    client.post<{ case_id: number; started: boolean; message: string }>(
+      `/onboarding/${id}/start`
+    ),
   workflowSummary: () =>
     client.get<{ by_status: Record<string, number> }>(
       '/onboarding/workflow-summary'
