@@ -344,27 +344,42 @@ API_KEYS=demo-api-key-001,demo-api-key-002
 
 ## Verification (Run These Before You Trust Anything)
 
-Four checks stand in for the test suite this sandbox cannot host. Each exits
-non-zero on failure, so all four are safe to wire into CI as-is.
+Six checks, all non-zero on failure, all safe to wire into CI as-is.
 
 ```bash
 cd vendor-onboarding-orchestrator
 
-# 1. Backend: syntax, imports, route shadowing, SQLAlchemy reserved names, ORM typos
+# 1. Regression tests for the defects that stopped this running (see below)
+cd backend && python -m pytest && cd ..
+
+# 2. Backend: syntax, imports, route shadowing, SQLAlchemy reserved names, ORM typos
 python3 backend/check_static.py
 
-# 2. Frontend: broken imports, unnamed exports, dead links, undefined CSS tokens
+# 3. Frontend: broken imports, unnamed exports, dead links, undefined CSS tokens
 python3 frontend/check_static.py
 
-# 3. Frontend/backend type drift (field names, missing fields, type and enum drift)
+# 4. Frontend/backend type drift (field names, missing fields, type and enum drift)
 python3 tools/check_contracts.py
 
-# 4. n8n workflow JSON: unique ids, every link resolves, no orphan nodes
+# 5. n8n workflow JSON: unique ids, every link resolves, no orphan nodes
 python3 n8n/build_workflows.py --check
 
-# 5. project_spec.json is not stale relative to the source it describes
+# 6. project_spec.json is not stale relative to the source it describes
 python3 tools/build_project_spec.py --check
 ```
+
+### Regression tests
+
+`backend/tests/test_regressions.py` guards the specific defects that made this
+project unrunnable: the two missing dependencies, the async DB URL rewrite,
+every ambiguous ORM relationship, the GIN operator class, the eager load that
+`POST /api/onboarding/` needs, and the two n8n generation bugs (missing `=` on
+expressions, missing workflow and tag ids).
+
+They are deliberately cheap — no database, no network, no LLM, 16 tests in
+about three seconds — because every one of these bugs was invisible to "the
+server started". A suite that needs a seeded Postgres before it will run is a
+suite nobody runs. When you fix something here, add the guard next to it.
 
 ### Evaluation (the numbers in the portfolio)
 
