@@ -42,8 +42,10 @@ import {
   ExceptionStatusBadge,
   RiskBadge,
   SeverityBadge,
-  WorkflowStatusBadge,
 } from '../components/ui/badges';
+import { PhaseStepper } from '../components/ui/PhaseStepper';
+import { NextStepPanel } from '../components/ui/NextStepPanel';
+import { StoryTimeline } from '../components/ui/StoryTimeline';
 import {
   formatConfidence,
   formatDate,
@@ -53,6 +55,7 @@ import {
 } from '../utils/format';
 
 type TabId =
+  | 'story'
   | 'overview'
   | 'documents'
   | 'risk'
@@ -60,10 +63,15 @@ type TabId =
   | 'approvals'
   | 'audit';
 
+/** An exception still blocking a decision, as opposed to one already settled. */
+const OPEN_EXCEPTION_STATUSES = new Set<string>(['open', 'in_progress', 'escalated']);
+
 export function VendorDetailPage() {
   const { caseId: caseIdParam } = useParams<{ caseId: string }>();
   const caseId = Number(caseIdParam);
-  const [tab, setTab] = useState<TabId>('overview');
+  // Story is the default: understanding one case should not mean assembling it
+  // from six tabs.
+  const [tab, setTab] = useState<TabId>('story');
 
   const caseQuery = useApi(() => onboardingApi.get(caseId), [caseId]);
   const riskQuery = useApi(() => riskApi.caseView(caseId), [caseId]);
@@ -97,10 +105,11 @@ export function VendorDetailPage() {
   };
 
   const tabs: Array<{ id: TabId; label: string; count?: number }> = [
+    { id: 'story', label: 'Story' },
     { id: 'overview', label: 'Overview' },
     { id: 'documents', label: 'Documents', count: detail.documents.length },
     { id: 'risk', label: 'Risk', count: detail.risk_signals.length },
-    { id: 'exceptions', label: 'Exceptions', count: detail.exceptions.length },
+    { id: 'exceptions', label: 'Issues', count: detail.exceptions.length },
     { id: 'approvals', label: 'Approvals', count: detail.approvals.length },
     { id: 'audit', label: 'Audit' },
   ];
@@ -117,8 +126,6 @@ export function VendorDetailPage() {
         description={
           <span className="row wrap" style={{ gap: 'var(--space-2)' }}>
             <span className="font-mono">{detail.case_number}</span>
-            <span className="text-muted">·</span>
-            <WorkflowStatusBadge status={detail.workflow_status} />
             <RiskBadge level={detail.risk_level} />
             <span className="text-muted">·</span>
             <span className="text-muted">
@@ -170,7 +177,35 @@ export function VendorDetailPage() {
         </div>
       )}
 
+      <PhaseStepper status={detail.workflow_status} />
+
+      <NextStepPanel
+        status={detail.workflow_status}
+        riskScore={detail.risk_score}
+        riskLevel={detail.risk_level}
+        components={riskQuery.data?.components ?? []}
+        explanation={riskQuery.data?.explanation}
+        openExceptions={
+          detail.exceptions.filter((e) => OPEN_EXCEPTION_STATUSES.has(e.status))
+            .length
+        }
+        failedDocuments={
+          detail.documents.filter((d) => d.status === 'failed').length
+        }
+        assessment={riskQuery.data?.current ?? null}
+        busy={start.pending || assess.pending}
+        busyLabel={
+          start.pending
+            ? 'Starting onboarding'
+            : assess.pending
+              ? 'Running the assessment'
+              : undefined
+        }
+      />
+
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
+
+      {tab === 'story' && <StoryTab caseId={caseId} />}
 
       {tab === 'overview' && (
         <>
@@ -314,6 +349,18 @@ export function VendorDetailPage() {
 
 // ==================== Documents ====================
 
+function StoryTab({ caseId }: { caseId: number }) {
+  const { data, loading, error, reload } = useApi(
+    () => auditApi.caseTimeline(caseId, 1, 200),
+    [caseId],
+  );
+
+  if (loading) return <LoadingState label="Loading what happened…" />;
+  if (error) return <ErrorState message={error} onRetry={reload} />;
+
+  return <StoryTimeline events={data?.events ?? []} />;
+}
+
 function DocumentsTab({
   documents,
   onChanged,
@@ -403,7 +450,7 @@ function DocumentsTab({
     return (
       <EmptyState
         title="No documents yet"
-        description="Documents uploaded against this case appear here once they are attached."
+        description="Nothing has been uploaded. A W-9 is usually the first document a vendor sends, followed by a certificate of insurance."
         icon={FileText}
       />
     );
@@ -558,7 +605,11 @@ function RiskTab({
         padded={false}
       >
         {view.signals.length === 0 ? (
-          <EmptyState title="No signals detected" icon={CheckCircle2} />
+          <EmptyState
+            title="Nothing was flagged"
+            description="No rule fired on this case. Either the documents are complete and consistent, or the case has not been assessed yet."
+            icon={CheckCircle2}
+          />
         ) : (
           <div className="table-container">
             <table className="table">
@@ -612,8 +663,8 @@ function ExceptionsTab({
   if (exceptions.length === 0) {
     return (
       <EmptyState
-        title="No exceptions on this case"
-        description="Exceptions appear here when a rule or the model raises a finding that needs a human decision."
+        title="No issues on this case"
+        description="An issue is raised when something needs a person's decision. There are none, so far."
         icon={CheckCircle2}
       />
     );
@@ -755,7 +806,12 @@ function AuditTab({ caseId }: { caseId: number }) {
   if (loading) return <LoadingState label="Loading audit trail…" />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
   if (!data || data.events.length === 0) {
-    return <EmptyState title="No audit events" description="Nothing has been recorded against this case yet." />;
+    return (
+      <EmptyState
+        title="No audit events"
+        description="Nothing has been recorded yet. Press Start onboarding and this trail will fill in, oldest first."
+      />
+    );
   }
 
   return (

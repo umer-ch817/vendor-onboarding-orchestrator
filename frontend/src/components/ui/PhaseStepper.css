@@ -1,0 +1,136 @@
+/* Four-phase stepper.
+ *
+ * Deliberately restrained: this is a control surface, not a marketing funnel.
+ * No fills, no gradients, no animation. The only colour is the primary blue for
+ * "done" and "here", plus red for a declined case.
+ */
+
+.phase-stepper {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.phase-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Connector. Last of type, not last child: the outcome badge is a span, so the
+   final step is still the last div. */
+.phase-step:not(:last-of-type)::after {
+  content: '';
+  width: 24px;
+  height: 1px;
+  margin: 0 var(--space-3);
+  background: var(--color-border-strong);
+}
+
+.phase-step-done::after {
+  background: var(--color-primary);
+}
+
+.phase-step-marker {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.phase-step-done .phase-step-marker {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.phase-step-current .phase-step-marker {
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+}
+
+.phase-step-declined .phase-step-marker {
+  background: var(--color-critical);
+  border-color: var(--color-critical);
+  color: var(--color-text-inverse);
+}
+
+.phase-step-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.phase-step-done .phase-step-label {
+  color: var(--color-text);
+}
+
+.phase-step-current .phase-step-label {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.phase-step-declined .phase-step-label {
+  color: var(--color-critical);
+  font-weight: 600;
+}
+
+.phase-step-flag {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-high-border);
+  background: var(--color-high-bg);
+  color: var(--color-high);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.phase-outcome {
+  margin-left: var(--space-2);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.phase-outcome-live {
+  border: 1px solid var(--color-low-border);
+  background: var(--color-low-bg);
+  color: var(--color-low);
+}
+
+.phase-outcome-declined {
+  border: 1px solid var(--color-critical-border);
+  background: var(--color-critical-bg);
+  color: var(--color-critical);
+}
+
+/* Compact: for rows and queue lists, where vertical space is scarce. */
+.phase-stepper-compact .phase-step-marker {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+
+.phase-stepper-compact .phase-step-label {
+  font-size: var(--text-xs);
+}
+
+.phase-stepper-compact .phase-step:not(:last-of-type)::after {
+  width: 12px;
+  margin: 0 var(--space-2);
+}
