@@ -307,6 +307,8 @@ export interface DashboardMetrics {
   by_status?: Record<string, number>;
   risk_distribution?: Record<string, number>;
   exceptions_by_severity?: Record<string, number>;
+  /** Cases waiting on a person, bucketed by how long they have waited. */
+  waiting_by_age?: Record<string, number>;
   needs_attention?: Array<{
     case_id: number;
     case_number: string;

@@ -1,13 +1,17 @@
 /** Dashboard — the operational entry point.
  *
- * Reordered around the question someone actually arrives with: "what do I need
+ * Ordered around the question someone actually arrives with: "what do I need
  * to do?" Counts tell you about the database; a worklist tells you about your
- * day. So the worklist comes first and the counts follow it.
+ * day. So the worklist comes first, the counts that explain it follow, and
+ * everything that is reference material lives behind a disclosure.
+ *
+ * The charts are few and quiet on purpose. Each one answers a question the
+ * worklist cannot: how the queue is split by stage, how much of it is risky,
+ * and how long the waiting items have actually been waiting. Anything that
+ * would be decoration is left out.
  *
  * Every number is still paired with the backend's own definition (shipped in
- * `definitions`), so the page cannot drift from what the API computes. The
- * definitions moved into a collapsed section because they are reference
- * material, not something to read every morning.
+ * `definitions`), so the page cannot drift from what the API computes.
  */
 
 import { Link } from 'react-router-dom';
@@ -32,6 +36,7 @@ import {
   ProgressBar,
   humanize,
 } from '../components/ui';
+import { ColumnChart, ChartTone } from '../components/ui/Charts';
 import { RiskBadge, RiskScore } from '../components/ui/badges';
 import { PhaseStepper } from '../components/ui/PhaseStepper';
 import { FirstRunTour } from '../components/ui/FirstRunTour';
@@ -110,6 +115,18 @@ function phaseCounts(byStatus: Record<string, number>): Record<string, number> {
   return out;
 }
 
+/**
+ * How long the waiting cases have been waiting. Ordered, and the tone rises
+ * with age: the point of this chart is to surface staleness, so the older
+ * bands should be the ones that catch the eye.
+ */
+const AGE_BANDS: Array<{ key: string; label: string; tone: ChartTone }> = [
+  { key: 'under_1_day', label: 'Under a day', tone: 'success' },
+  { key: '1_to_3_days', label: '1–3 days', tone: 'neutral' },
+  { key: '3_to_7_days', label: '3–7 days', tone: 'warning' },
+  { key: 'over_7_days', label: 'Over a week', tone: 'danger' },
+];
+
 export function DashboardPage() {
   const { data, loading, error, reload } = useApi(() => dashboardApi.full());
 
@@ -119,6 +136,13 @@ export function DashboardPage() {
 
   const definitions = data.definitions || {};
   const needsAttention = data.needs_attention || [];
+
+  const waiting = data.waiting_by_age || {};
+  const waitingData = AGE_BANDS.map((band) => ({
+    ...band,
+    value: waiting[band.key] || 0,
+  }));
+  const waitingTotal = waitingData.reduce((sum, d) => sum + d.value, 0);
 
   return (
     <div className="stack">
@@ -130,11 +154,7 @@ export function DashboardPage() {
               ? 'Nothing is waiting on a person right now.'
               : `${needsAttention.length} ${
                   needsAttention.length === 1 ? 'case needs' : 'cases need'
-                } someone.`}{' '}
-            <span className="text-muted">
-              {data.dataset_label || 'Demo Dataset'} — figures are computed from the
-              records in this database.
-            </span>
+                } someone.`}
           </p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={reload}>
@@ -256,11 +276,17 @@ export function DashboardPage() {
           order={['critical', 'high', 'medium', 'low']}
           toneFor={severityTone}
         />
-        <DistributionBars
-          title="Issues by severity"
-          counts={data.exceptions_by_severity || {}}
-          order={SEVERITY_ORDER}
-          toneFor={severityTone}
+        <ColumnChart
+          title="How long they have waited"
+          subtitle={
+            waitingTotal === 0
+              ? 'Nothing is waiting right now'
+              : `${waitingTotal} ${
+                  waitingTotal === 1 ? 'case is' : 'cases are'
+                } waiting on a person`
+          }
+          data={waitingData}
+          emptyHint="This appears once a case is waiting on someone."
         />
       </div>
 
@@ -310,6 +336,15 @@ export function DashboardPage() {
             definition={definitions.completed_this_month}
           />
         </div>
+
+        <div className="dashboard-more-chart">
+          <DistributionBars
+            title="Issues by severity"
+            counts={data.exceptions_by_severity || {}}
+            order={SEVERITY_ORDER}
+            toneFor={severityTone}
+          />
+        </div>
       </details>
 
       <details className="dashboard-more">
@@ -327,6 +362,10 @@ export function DashboardPage() {
             </div>
           )}
         </dl>
+        <p className="text-xs text-muted" style={{ marginTop: 'var(--space-3)' }}>
+          {data.dataset_label || 'Demo Dataset'} — figures are computed from the
+          records in this database, not estimated.
+        </p>
       </details>
     </div>
   );

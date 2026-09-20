@@ -26,6 +26,13 @@
   padding: var(--space-3) var(--space-4);
 }
 
+/* A chart inside the collapsed section: separated from the metrics above it,
+   and capped so it does not stretch to the full width of the page. */
+.dashboard-more-chart {
+  margin-top: var(--space-4);
+  max-width: 420px;
+}
+
 .dashboard-more > summary {
   list-style: none;
   cursor: pointer;

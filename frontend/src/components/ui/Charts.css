@@ -1,0 +1,69 @@
+/* Column chart.
+ *
+ * Held back on purpose: translucent fills on a track that is barely there, so
+ * the shape reads at a glance and the chart does not compete with the
+ * worklist above it for attention. No canvas, no charting library.
+ */
+
+.column-chart {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-3);
+  height: 132px;
+}
+
+.column {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.column-value {
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.column-track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(17, 24, 39, 0.05);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.column-fill {
+  width: 100%;
+  background: var(--color-primary);
+  opacity: 0.72;
+  border-radius: var(--radius-sm);
+  transition: height 0.25s ease;
+}
+
+.column-neutral {
+  background: var(--color-primary);
+}
+
+.column-warning {
+  background: var(--color-high);
+}
+
+.column-danger {
+  background: var(--color-critical);
+}
+
+.column-success {
+  background: var(--color-low);
+}
+
+.column-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+  line-height: 1.25;
+}
