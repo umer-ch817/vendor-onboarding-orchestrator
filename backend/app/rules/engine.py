@@ -29,6 +29,7 @@ from app.rules.types import (
     RuleEvaluation,
     RuleFinding,
 )
+from app.utils.countries import normalise_country
 from app.utils.logging import get_logger
 from app.utils.normalization import (
     addresses_are_equivalent,
@@ -582,8 +583,10 @@ class HighRiskGeographyRule(Rule):
     def evaluate(self, vendor, documents, requirements, today):
         if not vendor.country:
             return []
-        country = vendor.country.strip().upper()
-        if country not in HIGH_RISK_COUNTRIES:
+        # "Russia" and "RU" have to agree: the stored value may be spelled
+        # out even though the watchlist is written in alpha-2 codes.
+        country = normalise_country(vendor.country)
+        if not country or country not in HIGH_RISK_COUNTRIES:
             return []
 
         return [

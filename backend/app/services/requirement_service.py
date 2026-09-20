@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DocumentType, Requirement
 from app.rules.types import RequirementSpec
+from app.utils.countries import normalise_country
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -29,6 +30,13 @@ logger = get_logger(__name__)
 # derived from a live watchlist: this is a prototype, and a fabricated
 # authoritative-looking list would be worse than a small honest one.
 HIGH_RISK_COUNTRIES = {"RU", "BY", "IR", "KP", "SY", "CU", "VE"}
+
+
+# Country values are ISO-3166 alpha-2 codes, but a person filling in a vendor
+# record types "United States". Matching that literally against "US" is how a
+# US vendor came to be asked for the non-US tax certificate and never asked
+# for a W-9. The normaliser lives in app.utils.countries because the rules
+# engine needs it too, and importing it from there would form a cycle.
 
 
 # The default catalogue, seeded on first run. Codes are stable identifiers so
@@ -200,14 +208,16 @@ def _applies(
     guard a US vendor would be asked for both. We resolve that here rather
     than encoding "not US" as a condition no one will remember.
     """
-    if requirement.code == "REQ-TAX-CERT" and (country or "").upper() == "US":
+    code = normalise_country(country)
+
+    if requirement.code == "REQ-TAX-CERT" and code == "US":
         return False
-    if requirement.code == "REQ-W9" and country and country.upper() != "US":
+    if requirement.code == "REQ-W9" and code and code != "US":
         return False
 
     if not _matches(requirement.vendor_types, vendor_type):
         return False
-    if not _matches(requirement.countries, country):
+    if not _country_matches(requirement.countries, code):
         return False
     if not _matches(requirement.industries, industry):
         return False
@@ -234,8 +244,32 @@ def _matches(condition: Optional[Iterable[str]], value: Optional[str]) -> bool:
     return str(value).strip().lower() in lowered
 
 
+def _country_matches(condition: Optional[Iterable[str]], code: Optional[str]) -> bool:
+    """Whether a normalised country code satisfies a country condition list.
+
+    Separate from ``_matches`` because both sides must be canonicalised to
+    alpha-2 before comparing: a catalogue entry of "US" has to match a vendor
+    recorded as "United States", and neither side can be trusted to already
+    be in code form.
+    """
+    if condition is None:
+        return True
+    values = list(condition)
+    if not values:
+        return True
+    if not code:
+        return False
+    wanted = {(normalise_country(v) or "").lower() for v in values}
+    return code.lower() in wanted
+
+
 def is_high_risk_country(country: Optional[str]) -> bool:
-    """Whether a country code is on the prototype's high-risk list."""
+    """Whether a country is on the prototype's high-risk list.
+
+    Accepts either an alpha-2 code or a spelled-out name, so "Russia" and
+    "RU" agree.
+    """
     if not country:
         return False
-    return country.strip().upper() in HIGH_RISK_COUNTRIES
+    code = normalise_country(country)
+    return code in HIGH_RISK_COUNTRIES if code else False

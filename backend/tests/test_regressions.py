@@ -16,6 +16,9 @@ from pathlib import Path
 import pytest
 from sqlalchemy.orm import configure_mappers
 
+from app.services.requirement_service import _applies, is_high_risk_country
+from app.utils.countries import normalise_country
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REQUIREMENTS = REPO_ROOT / "backend" / "requirements.txt"
 WORKFLOW_DIR = REPO_ROOT / "n8n" / "workflows"
@@ -409,3 +412,81 @@ def test_dev_launcher_scopes_the_reload_watcher():
         "scripts/start-dev.sh runs uvicorn with --reload but no --reload-dir, "
         "so unrelated file edits restart the backend"
     )
+
+
+# ---------------------------------------------------------------------------
+# Country handling
+# ---------------------------------------------------------------------------
+#
+# Found by the end-to-end run: a US vendor recorded as "United States" was
+# asked for the non-US tax registration certificate and produced a
+# DOCUMENT_MISSING finding, which routed the case to blocked. It was never
+# asked for a W-9 either. Both requirement codes are compared against the
+# literal two-letter code, so any spelled-out country silently matched
+# nothing.
+
+
+class _FakeRequirement:
+    """Stand-in for the Requirement row: _applies only reads attributes."""
+
+    def __init__(self, code, vendor_types=None, countries=None, industries=None,
+                 risk_levels=None):
+        self.code = code
+        self.vendor_types = vendor_types
+        self.countries = countries
+        self.industries = industries
+        self.risk_levels = risk_levels
+
+
+def _applies_to(country, requirement):
+    return _applies(requirement, "supplier", country, None, None)
+
+
+def test_country_names_resolve_to_alpha_2_codes():
+    assert normalise_country("United States") == "US"
+    assert normalise_country("united states") == "US"
+    assert normalise_country("USA") == "US"
+    assert normalise_country("U.S.A.") == "US"
+    assert normalise_country("United  States") == "US"
+    assert normalise_country("us") == "US"
+    assert normalise_country("Russia") == "RU"
+
+
+def test_an_unrecognised_country_is_passed_through_not_dropped():
+    """A country we cannot map must still match a condition written the same
+    way. Returning None here would silently widen the requirement set."""
+    assert normalise_country("Wakanda") == "Wakanda"
+    assert normalise_country("") is None
+    assert normalise_country(None) is None
+
+
+def test_us_vendor_spelled_out_is_not_asked_for_the_non_us_tax_certificate():
+    """The bug: REQ-TAX-CERT's guard compared against the literal "US"."""
+    req = _FakeRequirement("REQ-TAX-CERT")
+    assert _applies_to("United States", req) is False
+    assert _applies_to("US", req) is False
+
+
+def test_us_vendor_spelled_out_is_asked_for_a_w9():
+    """The matching half of the bug: REQ-W9 has countries=["US"], so a vendor
+    recorded as "United States" did not match it either."""
+    req = _FakeRequirement("REQ-W9", vendor_types=["supplier"], countries=["US"])
+    assert _applies_to("United States", req) is True
+    assert _applies_to("US", req) is True
+
+
+def test_non_us_vendor_gets_the_tax_certificate_and_not_the_w9():
+    tax_cert = _FakeRequirement("REQ-TAX-CERT")
+    w9 = _FakeRequirement("REQ-W9", vendor_types=["supplier"], countries=["US"])
+
+    assert _applies_to("Singapore", tax_cert) is True
+    assert _applies_to("SG", tax_cert) is True
+
+    assert _applies_to("Singapore", w9) is False
+    assert _applies_to("SG", w9) is False
+
+
+def test_high_risk_geography_accepts_a_spelled_out_country():
+    assert is_high_risk_country("Russia") is True
+    assert is_high_risk_country("RU") is True
+    assert is_high_risk_country("United States") is False
