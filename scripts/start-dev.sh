@@ -47,7 +47,11 @@ if pgrep -f "uvicorn app.main:app" >/dev/null 2>&1; then
   echo "==> Backend already running on :8000"
 else
   echo "==> Starting backend on :8000"
+  # --reload-dir: with plain --reload uvicorn watches the whole repo, so saving
+  # scripts/, n8n/ or docs/ restarts the backend. Narrow it to the code that
+  # actually runs -- and keep it off backend/.venv, which is enormous.
   PYTHONPATH="$ROOT/backend" nohup "$PY" -m uvicorn app.main:app --reload \
+    --reload-dir "$ROOT/backend/app" \
     --port 8000 --host 127.0.0.1 >"$ROOT/logs/backend.log" 2>&1 &
 fi
 

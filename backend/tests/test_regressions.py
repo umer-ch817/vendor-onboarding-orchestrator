@@ -324,3 +324,88 @@ def test_openai_provider_accepts_a_custom_base_url():
 
     provider = OpenAIProvider(api_key="test-key", base_url="http://127.0.0.1:20128/v1")
     assert provider.base_url == "http://127.0.0.1:20128/v1"
+
+
+def _fake_engine(fail_times: int):
+    """Stand-in for SQLAlchemy's engine that refuses to connect `fail_times` times."""
+    state = {"calls": 0}
+
+    class _Conn:
+        async def run_sync(self, fn):  # noqa: ANN001
+            return None
+
+    class _Transaction:
+        async def __aenter__(self):
+            return _Conn()
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+    class _Engine:
+        def begin(self):
+            state["calls"] += 1
+            if state["calls"] <= fail_times:
+                raise ConnectionError("unexpected connection_lost() call")
+            return _Transaction()
+
+    return _Engine(), state
+
+
+def test_startup_retries_until_the_database_answers(monkeypatch):
+    """The crash that read as "the app is broken": Postgres is a Docker
+    container and is routinely still booting when the backend starts -- after
+    `docker compose up`, after a Docker Desktop restart, or when uvicorn's
+    reloader relaunches the app. One failed connect used to abort startup for
+    good with "Application startup failed. Exiting."
+    """
+    import asyncio
+
+    from app import main as main_module
+
+    engine, state = _fake_engine(fail_times=2)
+    waited: list[float] = []
+
+    async def _sleep(seconds: float) -> None:
+        waited.append(seconds)
+
+    monkeypatch.setattr(main_module, "engine", engine)
+    monkeypatch.setattr(main_module.asyncio, "sleep", _sleep)
+
+    asyncio.run(main_module.initialise_database(attempts=5, delay=0))
+
+    assert state["calls"] == 3, "should keep trying until one attempt succeeds"
+    assert waited == [0, 0], "must wait between attempts instead of spinning"
+
+
+def test_startup_gives_up_with_an_actionable_error(monkeypatch):
+    """If Postgres never comes back, fail with a message that names the cause
+    rather than an opaque asyncpg ConnectionError buried in a traceback."""
+    import asyncio
+
+    from app import main as main_module
+
+    engine, state = _fake_engine(fail_times=99)
+
+    async def _sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(main_module, "engine", engine)
+    monkeypatch.setattr(main_module.asyncio, "sleep", _sleep)
+
+    with pytest.raises(RuntimeError, match="Postgres container"):
+        asyncio.run(main_module.initialise_database(attempts=3, delay=0))
+
+    assert state["calls"] == 3, "must not retry forever"
+
+
+def test_dev_launcher_scopes_the_reload_watcher():
+    """Plain --reload makes uvicorn watch the entire repo, so saving anything
+    under scripts/, n8n/ or docs/ restarts the backend. That is how a Docker
+    restart turned into "Application startup failed": the app reloaded at the
+    exact moment the database was down.
+    """
+    text = (REPO_ROOT / "scripts" / "start-dev.sh").read_text(encoding="utf-8")
+    assert "--reload-dir" in text, (
+        "scripts/start-dev.sh runs uvicorn with --reload but no --reload-dir, "
+        "so unrelated file edits restart the backend"
+    )

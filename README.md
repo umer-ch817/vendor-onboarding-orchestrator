@@ -234,28 +234,47 @@ The system includes 20 synthetic vendors demonstrating various edge cases:
 
 ## Running Locally
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd vendor-onboarding-orchestrator
+### Windows — three files, no terminal
 
-# Copy environment variables
-cp .env.example .env
+The only thing you must install yourself is
+[Docker Desktop](https://www.docker.com/products/docker-desktop/). Open it once
+and wait until it says **Running**. Everything else is handled for you.
 
-# One command: infrastructure + backend + frontend (+ --seed for demo data)
-./scripts/start-dev.sh --seed
-```
+| Do this | When | What it does |
+|---------|------|--------------|
+| Double-click **`setup.bat`** | Once, after cloning | Creates the Python environment and installs the website packages. A few minutes the first time. |
+| Double-click **`start.bat`** | Every time you want to work | Starts the database, the automation workflows, the backend and the website, then opens the website for you. |
+| Double-click **`stop.bat`** | When you are done | Shuts the backend, the website and the Docker services down. |
 
-**Requirements:** Docker, Node 18+, and **Python 3.12**. The pinned
-dependencies (`pydantic 2.5.3`, `fastapi 0.109`) publish no wheels for 3.13 or
-3.14, so a 3.13+ venv cannot install them.
+Two extra windows appear when you run `start.bat` — **leave them open**. Closing
+them stops the backend and the website. `start.bat` is safe to run twice: it
+checks each port first and only starts what is not already running.
 
 | URL | What it is |
 |-----|------------|
-| http://localhost:5173 | Frontend dashboard |
-| http://localhost:8000 | Backend API |
-| http://localhost:8000/docs | Swagger UI |
-| http://localhost:5678 | n8n — create the owner account on first open |
+| http://localhost:5173 | The website — start here |
+| http://localhost:8000/docs | Backend API reference (Swagger UI) |
+| http://localhost:5678 | n8n, the automation engine. No default password: the first time you open it, it asks you to create the owner account. |
+
+**Python 3.12 is required.** The pinned dependencies (`pydantic 2.5.3`,
+`fastapi 0.109`) publish no wheels for 3.13 or 3.14, so `setup.bat` looks for
+3.12 specifically and warns you if it finds something else.
+
+If something does not come up, `start.bat` says what is wrong ("Docker is
+installed but not running", "The Python environment has not been set up yet").
+For deeper problems see **[RUNBOOK.md](RUNBOOK.md)** — in particular the
+troubleshooting table and the section on using a real LLM instead of the mock.
+
+### Mac / Linux — one command
+
+```bash
+git clone <repository-url>
+cd vendor-onboarding-orchestrator
+cp .env.example .env      # then edit .env if you want a real LLM
+
+# Infrastructure + backend + frontend (+ --seed for demo data)
+./scripts/start-dev.sh --seed
+```
 
 ### Manual start (if you prefer separate terminals)
 
@@ -271,7 +290,7 @@ docker compose up -d
 python3.12 -m venv backend/.venv
 backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
 PYTHONPATH="$PWD/backend" backend/.venv/Scripts/python.exe \
-  -m uvicorn app.main:app --reload --port 8000
+  -m uvicorn app.main:app --reload --reload-dir "$PWD/backend/app" --port 8000
 
 # 3. Frontend
 cd frontend && npm install && npm run dev
@@ -282,6 +301,13 @@ PYTHONPATH="$PWD/backend" \
   LLM_PROVIDER=mock \
   backend/.venv/Scripts/python.exe backend/scripts/seed_demo_data.py
 ```
+
+Two details worth knowing if you ever start the backend by hand:
+
+- It waits up to 30 seconds for Postgres. Without that, a Docker restart that
+  lands while the app is starting used to kill it outright.
+- `--reload-dir` matters. With plain `--reload`, uvicorn watches the whole repo,
+  so saving anything under `scripts/`, `n8n/` or `docs/` restarts the backend.
 
 ## Environment Variables
 

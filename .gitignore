@@ -18,6 +18,8 @@ htmlcov/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+# Vite writes these when it compiles vite.config.ts. Build artefacts, not source.
+vite.config.ts.timestamp-*.mjs
 node_modules/
 npm-debug.log*
 yarn-error.log*

@@ -351,14 +351,18 @@ This overwrites all 4 JSON files in `n8n/workflows/`. Run after any orchestratio
 # 1. Infrastructure
 docker compose up -d
 
-# 2. Backend (native)
-cd backend
-pip install -r requirements.txt
+# 2. Backend (native) — launch from the REPO ROOT, not from backend/.
+#    app/config.py resolves ".env" relative to the working directory, so
+#    starting inside backend/ silently falls back to Docker hostnames and the
+#    API cannot reach Postgres. PYTHONPATH must contain backend/ because the
+#    app imports `app.*`.
+pip install -r backend/requirements.txt
 DATABASE_URL=postgresql://vendoruser:vendorpass@localhost:5432/vendordb \
-  uvicorn app.main:app --reload --port 8000
+  PYTHONPATH="$PWD/backend" \
+  uvicorn app.main:app --reload --reload-dir "$PWD/backend/app" --port 8000
 
 # 3. Frontend (native)
-cd ../frontend
+cd frontend
 npm install
 npm run dev
 

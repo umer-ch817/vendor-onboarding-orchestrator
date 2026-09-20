@@ -23,7 +23,8 @@ docker compose up -d
 python3.12 -m venv backend/.venv
 backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
 PYTHONPATH="$PWD/backend" \
-  backend/.venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000
+  backend/.venv/Scripts/python.exe -m uvicorn app.main:app --reload \
+  --reload-dir "$PWD/backend/app" --port 8000
 
 # 4. Frontend (Terminal 3)
 cd frontend
@@ -343,6 +344,8 @@ API_KEYS=demo-api-key-001,demo-api-key-002
 
 | Symptom | Fix |
 |---------|-----|
+| Backend exits: `asyncpg … ConnectionError: unexpected connection_lost()` then `Application startup failed` | Postgres was not reachable at that instant — usually a Docker Desktop restart, or uvicorn reloading while the container was down. The backend now retries for ~30s, so if it still fails start Docker and re-run `start.bat`. |
+| Backend restarts for no reason while you edit files | uvicorn is watching the whole repo. Scope it with `--reload-dir backend/app`. |
 | `uvicorn` fails: "Address already in use" | Another process on 8000. Kill it or change port. |
 | `npm run dev` fails: "Port 5173 in use" | Vite picks next free port; check terminal output. |
 | Frontend shows "Failed to fetch" | Backend not running, or CORS. Check terminal 2. |

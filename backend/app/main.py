@@ -1,4 +1,5 @@
 """Vendor Onboarding & Risk Orchestrator - Main Application"""
+import asyncio
 from datetime import datetime
 from typing import Optional
 from contextlib import asynccontextmanager
@@ -10,7 +11,52 @@ from pydantic import BaseModel
 
 from app.database import engine, Base
 from app.api import router
-from app.utils.logging import setup_logging
+from app.utils.logging import setup_logging, get_logger
+
+logger = get_logger(__name__)
+
+# Postgres runs in Docker, so it is routinely still booting at the moment the
+# backend starts: after `docker compose up`, after a Docker Desktop restart,
+# or when uvicorn's reloader relaunches the app because a file changed.
+DB_STARTUP_ATTEMPTS = 15
+DB_STARTUP_DELAY_SECONDS = 2.0
+
+
+async def initialise_database(
+    attempts: int = DB_STARTUP_ATTEMPTS,
+    delay: float = DB_STARTUP_DELAY_SECONDS,
+) -> None:
+    """Create the tables, waiting for Postgres to become reachable.
+
+    One failed connect used to abort startup for good -- uvicorn printed
+    "Application startup failed. Exiting." and the window closed, which looks
+    exactly like "the app is broken" when the real cause is only that the
+    database container was not up yet. Retry instead, and say so in the log.
+    """
+    last_error: Optional[BaseException] = None
+    for attempt in range(1, attempts + 1):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            return
+        except Exception as exc:  # noqa: BLE001 - any driver error means "not ready yet"
+            last_error = exc
+            logger.warning(
+                "database_not_ready",
+                extra={
+                    "attempt": attempt,
+                    "of_attempts": attempts,
+                    "retry_in_seconds": delay,
+                    "error": str(exc)[:200],
+                },
+            )
+            await asyncio.sleep(delay)
+
+    raise RuntimeError(
+        f"Database unreachable after {attempts} attempts over "
+        f"{attempts * delay:.0f}s. Is the Postgres container running? "
+        f"Last error: {last_error}"
+    )
 
 
 @asynccontextmanager
@@ -19,9 +65,8 @@ async def lifespan(app: FastAPI):
     # Startup
     setup_logging()
 
-    # Create database tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Create database tables (waits for Postgres if it is still starting)
+    await initialise_database()
 
     yield
 
