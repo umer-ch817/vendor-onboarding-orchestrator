@@ -15,7 +15,7 @@
         "timezone": "UTC",
         "options": {}
       },
-      "id": "f06b29a5-e6c1-4d23-a3d2-0cb9c6c4a689",
+      "id": "d8285ef4-d789-4e8a-b2a6-208b27190eb4",
       "name": "Schedule",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -32,31 +32,31 @@
         "assignments": {
           "assignments": [
             {
-              "id": "7ae734a0-bcd6-48b8-8679-074e00123688",
+              "id": "d06fc220-9cda-4e2b-af98-7071de1d55f2",
               "name": "backend_base_url",
               "value": "={{ $env.VOR_BACKEND_URL }}",
               "type": "string"
             },
             {
-              "id": "c1abbc6e-49f3-43a1-a930-91aa3febee27",
+              "id": "db26e203-73ce-44cd-bd6d-7b007c312e8e",
               "name": "notification_base_url",
               "value": "={{ $env.VOR_NOTIFICATION_URL }}",
               "type": "string"
             },
             {
-              "id": "f5372562-a07e-4658-aa93-cb0109e389ec",
+              "id": "39182bfe-0344-43b1-b17b-7a48fa03b69b",
               "name": "callback_secret",
               "value": "={{ $env.VOR_CALLBACK_SECRET }}",
               "type": "string"
             },
             {
-              "id": "95ec9231-b18f-47df-b562-991eea3c11ce",
+              "id": "abc7ccab-edce-463e-9050-f897f64eb6ef",
               "name": "warning_hours",
               "value": "24",
               "type": "string"
             },
             {
-              "id": "e421a202-7070-46b6-8c45-e3055ab20202",
+              "id": "e3397963-4e8f-4ee2-be03-8b9e2415be23",
               "name": "escalation_hours",
               "value": "72",
               "type": "string"
@@ -65,7 +65,7 @@
         },
         "options": {}
       },
-      "id": "0ca418fb-bad0-47e1-b543-5cef819ee0cd",
+      "id": "c18535c7-2935-4c24-b262-0e8bf9e730e2",
       "name": "Workflow Settings",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -80,7 +80,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "const settings = $('Workflow Settings').first().json;\n\nconst out = [];\nfor (const item of $input.all()) {\n  const base = String(settings.backend_base_url).replace(/\\/$/, '');\n  out.push({\n    json: {\n      warning_url: base + '/api/exceptions/summary',\n      escalation_url: base + '/api/exceptions/summary',\n      backend_base_url: base,\n      callback_secret: settings.callback_secret,\n      warning_hours: Number(settings.warning_hours || 24),\n      escalation_hours: Number(settings.escalation_hours || 72),\n    },\n  });\n}\nreturn out;"
       },
-      "id": "27e57c08-8435-4549-892e-5dd1662d88b6",
+      "id": "1a47631d-5aeb-418c-929a-49408cba7170",
       "name": "Build SLA Query",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -98,7 +98,7 @@
           "timeout": 180000
         }
       },
-      "id": "3d3b411f-ac90-411a-aa3a-3f5289786522",
+      "id": "9a3c595f-875c-424b-b5a2-045e0a2018b9",
       "name": "Get Exception Summary",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -132,7 +132,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({event_type: 'RETRY_EXHAUSTED', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({stage: 'sla_summary', detail: 'Exception summary call failed after 2 attempts.'}))}) }}"
       },
-      "id": "d1ae8758-07bf-40c4-a33f-3fe9be7c8545",
+      "id": "09c7c7ad-5f29-4ee1-a35b-67ec9cd5631e",
       "name": "Record Summary Failure",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -148,7 +148,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// The summary endpoint returns counts by severity and age. The workflow\n// escalates cases whose oldest pending exception exceeds the escalation\n// threshold. A warning is logged for cases approaching the threshold.\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json || {};\n  const err = j.error || null;\n  const status = Number(j.statusCode || (err && (err.httpCode || err.status)) || 0);\n  const ok = !err && status >= 200 && status < 300;\n\n  if (!ok) {\n    out.push({\n      json: {\n        state: 'failed',\n        http_status: status,\n        detail: 'Summary call failed with HTTP ' + status + '.',\n      },\n    });\n    continue;\n  }\n\n  // The mock returns a shape the code below expects. A real backend would\n  // return a structured list; the mock is simple. In production this node\n  // would loop over the cases and triage each one.\n  out.push({\n    json: Object.assign({}, j, {\n      state: 'completed',\n      warning_hours: $json.warning_hours,\n      escalation_hours: $json.escalation_hours,\n    }),\n  });\n}\nreturn out;"
       },
-      "id": "52597540-b1e5-4991-8c2f-a6729007a1e8",
+      "id": "3f0dc9e3-ca5c-4311-8022-5fa4dbb273e4",
       "name": "Interpret SLA",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -169,7 +169,7 @@
           },
           "conditions": [
             {
-              "id": "965867cf-4b9a-4476-8893-930e99ff6346",
+              "id": "f4a0b2a8-5127-4b44-ad75-9d4eba91c5e9",
               "leftValue": "={{ $json.state }}",
               "rightValue": "completed",
               "operator": {
@@ -182,7 +182,7 @@
         },
         "options": {}
       },
-      "id": "5016da81-90e7-4b28-8b57-46dc142501b3",
+      "id": "f22161e3-1904-49c0-b99e-324e99585989",
       "name": "Summary Ok?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -212,7 +212,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({event_type: 'SLA_WARNING', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({warning_hours: $json.warning_hours, escalation_hours: $json.escalation_hours, detail: 'SLA check completed; warnings and escalations recorded on individual exceptions.'}))}) }}"
       },
-      "id": "d809e0cf-4216-4477-9612-9f98a518195e",
+      "id": "c4046dcd-62c8-459d-b1c0-36d0d1ba8072",
       "name": "Record SLA Warning",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -230,7 +230,7 @@
         "width": 520,
         "color": 4
       },
-      "id": "634bb977-d608-4658-891e-3f03f796dea7",
+      "id": "052f7516-7700-4846-960e-b3e3a6f47412",
       "name": "Note 1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
@@ -319,7 +319,8 @@
   "settings": {
     "executionOrder": "v1",
     "saveManualExecutions": true,
-    "callerPolicy": "workflowsFromSameOwner"
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "af48ee18-5d36-5562-9181-05b13cc77833"
   },
   "pinData": {},
   "tags": [

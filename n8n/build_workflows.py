@@ -92,6 +92,31 @@ def _tags() -> list[dict[str, str]]:
     ]
 
 
+ERROR_WORKFLOW_NAME = "Vendor Onboarding — Error Handler"
+# Ids are derived from the workflow's display name, so this is stable and known
+# before import -- which is what makes wiring the error handler possible here
+# rather than by hand in the UI.
+ERROR_WORKFLOW_ID = _workflow_id(ERROR_WORKFLOW_NAME)
+
+
+def _settings(*, on_error: bool = True) -> dict:
+    """Workflow settings shared by all four workflows.
+
+    ``errorWorkflow`` is what makes the error handler reachable. Without it a
+    workflow that throws just records a failed execution: the handler is
+    imported and active, but nothing ever calls it, so failures vanish. The
+    handler must not point at itself or an unhandled failure becomes a loop.
+    """
+    settings = {
+        "executionOrder": "v1",
+        "saveManualExecutions": True,
+        "callerPolicy": "workflowsFromSameOwner",
+    }
+    if on_error:
+        settings["errorWorkflow"] = ERROR_WORKFLOW_ID
+    return settings
+
+
 # ---------------------------------------------------------------------------
 # Node factories
 # ---------------------------------------------------------------------------
@@ -449,7 +474,7 @@ def workflow(
         "nodes": nodes,
         "connections": connections,
         "active": False,
-        "settings": settings or {"executionOrder": "v1"},
+        "settings": settings or _settings(),
         "pinData": {},
         "tags": _tags(),
     }
@@ -1044,7 +1069,7 @@ def workflow_document_intake() -> dict:
         "Vendor Onboarding — Document Intake",
         nodes,
         links,
-        settings={"executionOrder": "v1", "saveManualExecutions": True, "callerPolicy": "workflowsFromSameOwner"},
+        settings=_settings(),
     )
 
 
@@ -1207,7 +1232,7 @@ def workflow_sla_escalation() -> dict:
         "Vendor Onboarding — SLA Escalation",
         nodes,
         links,
-        settings={"executionOrder": "v1", "saveManualExecutions": True, "callerPolicy": "workflowsFromSameOwner"},
+        settings=_settings(),
     )
 
 
@@ -1333,7 +1358,7 @@ def workflow_error_handler() -> dict:
         "Vendor Onboarding — Error Handler",
         nodes,
         links,
-        settings={"executionOrder": "v1", "saveManualExecutions": True, "callerPolicy": "workflowsFromSameOwner"},
+        settings=_settings(on_error=False),
     )
 
 
@@ -1681,14 +1706,7 @@ def workflow_case_orchestrator() -> dict:
         "Vendor Onboarding — Case Orchestrator",
         nodes,
         links,
-        settings={
-            "executionOrder": "v1",
-            # Set this to the error-handler workflow's id after importing both
-            # (Settings -> Error Workflow in the n8n UI). It cannot be set here
-            # because the id is assigned by the n8n instance on import.
-            "saveManualExecutions": True,
-            "callerPolicy": "workflowsFromSameOwner",
-        },
+        settings=_settings(),
     )
 
 

@@ -4,7 +4,7 @@
   "nodes": [
     {
       "parameters": {},
-      "id": "d6366828-4bd9-4455-b67d-18a186521873",
+      "id": "6e763e32-3fb5-4502-9b77-ca365405da6f",
       "name": "Error Triggered",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1.2,
@@ -21,19 +21,19 @@
         "assignments": {
           "assignments": [
             {
-              "id": "78acdaca-6cd8-4f76-af6a-d7d27235677e",
+              "id": "c0958e18-e5c8-4087-b40c-efcda7ca2c56",
               "name": "backend_base_url",
               "value": "={{ $env.VOR_BACKEND_URL }}",
               "type": "string"
             },
             {
-              "id": "bea5d74d-a3ef-4b5d-bfba-899d30112184",
+              "id": "56bbe1b1-900d-4c11-958f-887df2f2d638",
               "name": "notification_base_url",
               "value": "={{ $env.VOR_NOTIFICATION_URL }}",
               "type": "string"
             },
             {
-              "id": "cb69f203-0695-4d11-8b2f-08684d451fb8",
+              "id": "5b131239-a016-4b41-9288-0ce630c555bd",
               "name": "callback_secret",
               "value": "={{ $env.VOR_CALLBACK_SECRET }}",
               "type": "string"
@@ -42,7 +42,7 @@
         },
         "options": {}
       },
-      "id": "f00b84a2-614c-4852-905f-b52bcebddcd0",
+      "id": "036f957e-77ce-4efd-8f4a-deb70ffbeb0b",
       "name": "Workflow Settings",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -57,7 +57,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// The error trigger provides a structured payload describing what failed.\n// This node normalises it into the incident schema.\nconst execution = $input.first().json;\nconst workflowName = execution.workflow?.name || 'unknown';\nconst executionId = execution.id || 'unknown';\nconst nodeName = execution.node?.name || 'unknown';\nconst nodeType = execution.node?.type || 'unknown';\nconst errorMessage = execution.error?.message || String(execution.error) || 'unknown error';\nconst lastNode = execution.lastNode || nodeName;\n\nconst out = [{\n  json: {\n    event_type: 'WORKFLOW_FAILED',\n    workflow: workflowName,\n    execution_id: executionId,\n    node: lastNode,\n    message: errorMessage,\n    data: {\n      node_type: nodeType,\n      input_summary: execution.inputData ? Object.keys(execution.inputData).length : 0,\n    },\n    // The error trigger payload does not include a case_id. If the failed\n    // workflow had one in its data, it would be in execution.data.case_id.\n    case_id: execution.data?.case_id || null,\n  },\n}];\nreturn out;"
       },
-      "id": "9154116e-1f52-4d61-bafa-3dd02a042c77",
+      "id": "8d6b48d5-b245-435c-959a-0aec29a60960",
       "name": "Interpret Error",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -87,7 +87,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json) }}"
       },
-      "id": "53aec5c2-37d9-4b7e-a27b-9a2f2d9f9398",
+      "id": "3a330442-c811-4cbc-8ae5-ab366bbd1cfa",
       "name": "Record Incident",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -121,7 +121,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({event_type: 'RETRY_EXHAUSTED', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({stage: 'error_handler', detail: 'Incident recording failed after 3 attempts; the original workflow failure is now invisible in the audit trail.'}))}) }}"
       },
-      "id": "dc924ff6-ab5f-4962-b56c-d0b754a38241",
+      "id": "a7041c63-6aa1-466b-93f4-727779ee1208",
       "name": "Record Incident Failure",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -152,7 +152,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({event_type: 'WORKFLOW_COMPLETED', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({outcome: 'incident_recorded', workflow: $json.workflow, node: $json.node, case_id: $json.case_id}))}) }}"
       },
-      "id": "57665a40-344d-4aed-8d90-65bebad49756",
+      "id": "d5826d41-b6f4-4e21-adab-4cc4c818721d",
       "name": "Record Incident Success",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -170,7 +170,7 @@
         "width": 520,
         "color": 4
       },
-      "id": "dbf07a06-1754-471f-9366-538c7b939065",
+      "id": "cbbc85c8-1328-4b1e-806d-14307867e6e6",
       "name": "Note 1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
