@@ -1,0 +1,144 @@
+# Evaluation Report — Vendor Onboarding & Risk Orchestrator
+
+*Prototype Metrics — computed by `backend/scripts/run_evaluation.py` over a 50-case synthetic dataset. No figure here was entered by hand.*
+
+---
+
+## What this measures
+
+The 50 cases are synthetic and their labels are derived from the same written policy the rule engine implements. This is a statement about **implementation fidelity** — whether the code does what the policy says — and not about real-world detection precision, which would require labelled production data.
+
+Two properties are asserted rather than scored, because no accuracy figure excuses them: no case requiring human review may be auto-approved, and no clean case may be flagged.
+
+---
+
+## Headline
+
+| Metric | Value |
+|--------|-------|
+| Exact route accuracy | 50/50 (1.000) |
+| Human-attention precision | 1.000 |
+| Human-attention recall | 1.000 |
+| Human-attention F1 | 1.000 |
+| Unsafe auto-approvals | 0 |
+| Blocking recall | 1.000 |
+| Clean false positives | 0 (0.000) |
+
+---
+
+## Confusion matrix — expected route (rows) against produced route (columns)
+
+| expected \ produced | auto_approve | compliance_review | senior_review | escalate | blocked |
+|---|---|---|---|---|---|
+| **auto_approve** | 15 | 0 | 0 | 0 | 0 |
+| **compliance_review** | 0 | 8 | 0 | 0 | 0 |
+| **senior_review** | 0 | 0 | 15 | 0 | 0 |
+| **escalate** | 0 | 0 | 0 | 4 | 0 |
+| **blocked** | 0 | 0 | 0 | 0 | 8 |
+
+---
+
+## Per-route precision and recall
+
+| Route | Support | Precision | Recall | F1 |
+|-------|---------|-----------|--------|----|
+| auto_approve | 15 | 1.000 | 1.000 | 1.000 |
+| compliance_review | 8 | 1.000 | 1.000 | 1.000 |
+| senior_review | 15 | 1.000 | 1.000 | 1.000 |
+| escalate | 4 | 1.000 | 1.000 | 1.000 |
+| blocked | 8 | 1.000 | 1.000 | 1.000 |
+
+A route with no support is omitted from precision and recall rather than reported as zero: dividing by an empty set is undefined, and printing 0.000 would read as a failure.
+
+---
+
+## Accuracy by scenario family
+
+| Family | Cases | Correct | Expected route |
+|--------|-------|---------|----------------|
+| banking_mismatch | 4 | 4 | `escalate` |
+| clean_renewal | 5 | 5 | `auto_approve` |
+| clean_us_supplier | 10 | 10 | `auto_approve` |
+| entity_mismatch | 4 | 4 | `senior_review` |
+| expired_documents | 5 | 5 | `senior_review` |
+| expiring_insurance | 8 | 8 | `compliance_review` |
+| high_risk_geography | 6 | 6 | `senior_review` |
+| missing_mandatory | 8 | 8 | `blocked` |
+
+---
+
+## Score distribution
+
+Minimum 0, median 15.0, mean 15.5, maximum 60 (scale 0–100).
+
+---
+
+## Normalization controls
+
+Every clean case above carries identical names and addresses across its documents, so on its own it proves only that the engine stays quiet on trivial input. These two measurements are the ones that show the comparison logic is actually working, and they have to be read as a pair.
+
+| Measurement | Cases | Result |
+|-------------|-------|--------|
+| Same entity written differently (`L.L.C.` vs `LLC`, `Suite 400` vs nothing) | 5 | 0 flagged (expected 0) |
+| Genuinely different entity or account holder | 8 | 8 detected (expected 8) |
+
+A normalizer tuned to never report a mismatch would score zero on the first row and zero on the second, which is why the second row is reported alongside it.
+
+---
+
+## Rule firing counts
+
+| Rule code | Cases that raised it |
+|-----------|----------------------|
+| `DOCUMENT_EXPIRING_SOON` | 8 |
+| `DOCUMENT_MISSING` | 8 |
+| `HIGH_RISK_GEOGRAPHY` | 6 |
+| `DOCUMENT_EXPIRED` | 5 |
+| `ENTITY_NAME_MISMATCH` | 4 |
+| `BANKING_NAME_MISMATCH` | 4 |
+
+---
+
+## Severity-floor regression test
+
+A vendor whose only finding is an expired insurance certificate scores **25** points, which sits exactly on the auto-approve ceiling of 25. The case was routed to **`senior_review`**.
+
+- Highest severity present: `high`
+- Additive score alone would have routed to: `auto_approve`
+- **Result: PASS**
+
+---
+
+## Determinism
+
+The full dataset was evaluated twice and compared case by case. Identical results: **True** over 50 cases.
+
+---
+
+## Safety checks
+
+All safety checks passed:
+
+- No case requiring human review was auto-approved.
+- Every case that should block did block.
+- No clean case was flagged.
+
+---
+
+## Reproducing this
+
+```bash
+python3 backend/scripts/run_evaluation.py
+```
+
+The run is deterministic: the same command produces the same numbers. `evaluation/results.json` holds the per-case detail, including the findings that drove each route.
+
+---
+
+## Limitations
+
+The dataset is synthetic and constructed to cover the policy, so the accuracy figures describe agreement between the code and the policy it encodes. They are not a measurement of fraud detection in production. The AI layer is excluded from this evaluation on purpose: it contributes advisory signals only and cannot change a route, so including it would add noise to a measurement of the deterministic path.
+
+---
+
+*Evaluation Report — Prototype Metrics, synthetic dataset. Generated by `backend/scripts/run_evaluation.py`.*

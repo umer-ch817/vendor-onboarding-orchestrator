@@ -1,0 +1,1260 @@
+{
+  "metrics": {
+    "dataset": {
+      "case_count": 50,
+      "label_source": "Labels are derived from the written onboarding policy that the rule engine implements. This measures implementation fidelity, not real-world detection precision.",
+      "synthetic": true
+    },
+    "accuracy": {
+      "exact_route": 50,
+      "exact_route_rate": 1.0,
+      "unsafe_auto_approvals": 0,
+      "unsafe_auto_approval_cases": [],
+      "blocking_recall": 1.0,
+      "clean_false_positives": 0,
+      "clean_false_positive_cases": [],
+      "clean_false_positive_rate": 0.0
+    },
+    "human_attention_classification": {
+      "positive_class": "route != auto_approve",
+      "true_positive": 35,
+      "false_positive": 0,
+      "true_negative": 15,
+      "false_negative": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "normalization_controls": {
+      "similar_inputs_tested": 5,
+      "similar_inputs_flagged": 0,
+      "similar_inputs_flagged_cases": [],
+      "genuine_mismatches_tested": 8,
+      "genuine_mismatches_detected": 8,
+      "genuine_mismatches_detected_cases": [
+        "entity-033",
+        "entity-034",
+        "entity-035",
+        "entity-036",
+        "banking-037",
+        "banking-038",
+        "banking-039",
+        "banking-040"
+      ]
+    },
+    "confusion_matrix": {
+      "auto_approve": {
+        "auto_approve": 15,
+        "compliance_review": 0,
+        "senior_review": 0,
+        "escalate": 0,
+        "blocked": 0
+      },
+      "compliance_review": {
+        "auto_approve": 0,
+        "compliance_review": 8,
+        "senior_review": 0,
+        "escalate": 0,
+        "blocked": 0
+      },
+      "senior_review": {
+        "auto_approve": 0,
+        "compliance_review": 0,
+        "senior_review": 15,
+        "escalate": 0,
+        "blocked": 0
+      },
+      "escalate": {
+        "auto_approve": 0,
+        "compliance_review": 0,
+        "senior_review": 0,
+        "escalate": 4,
+        "blocked": 0
+      },
+      "blocked": {
+        "auto_approve": 0,
+        "compliance_review": 0,
+        "senior_review": 0,
+        "escalate": 0,
+        "blocked": 8
+      }
+    },
+    "per_route": {
+      "auto_approve": {
+        "support": 15,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "compliance_review": {
+        "support": 8,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "senior_review": {
+        "support": 15,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "escalate": {
+        "support": 4,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "blocked": {
+        "support": 8,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      }
+    },
+    "by_family": {
+      "clean_us_supplier": {
+        "count": 10,
+        "correct": 10,
+        "expected": "auto_approve"
+      },
+      "expiring_insurance": {
+        "count": 8,
+        "correct": 8,
+        "expected": "compliance_review"
+      },
+      "missing_mandatory": {
+        "count": 8,
+        "correct": 8,
+        "expected": "blocked"
+      },
+      "high_risk_geography": {
+        "count": 6,
+        "correct": 6,
+        "expected": "senior_review"
+      },
+      "entity_mismatch": {
+        "count": 4,
+        "correct": 4,
+        "expected": "senior_review"
+      },
+      "banking_mismatch": {
+        "count": 4,
+        "correct": 4,
+        "expected": "escalate"
+      },
+      "expired_documents": {
+        "count": 5,
+        "correct": 5,
+        "expected": "senior_review"
+      },
+      "clean_renewal": {
+        "count": 5,
+        "correct": 5,
+        "expected": "auto_approve"
+      }
+    },
+    "score_distribution": {
+      "min": 0,
+      "max": 60,
+      "mean": 15.5,
+      "median": 15.0
+    },
+    "rule_firing_counts": {
+      "DOCUMENT_EXPIRING_SOON": 8,
+      "DOCUMENT_MISSING": 8,
+      "HIGH_RISK_GEOGRAPHY": 6,
+      "DOCUMENT_EXPIRED": 5,
+      "ENTITY_NAME_MISMATCH": 4,
+      "BANKING_NAME_MISMATCH": 4
+    }
+  },
+  "severity_floor_regression": {
+    "case_id": "regression-expired-insurance",
+    "score": 25,
+    "highest_severity": "high",
+    "route": "senior_review",
+    "additive_score_alone_would_route_to": "auto_approve",
+    "passed": true,
+    "explanation": "An expired insurance certificate scores 25 points, which sits exactly on the auto-approve ceiling. Without a severity floor the case would be auto-approved."
+  },
+  "determinism": {
+    "deterministic": true,
+    "cases_compared": 50
+  },
+  "safety_checks": {
+    "passed": true,
+    "failures": []
+  },
+  "cases": [
+    {
+      "case_id": "clean-001",
+      "family": "clean_us_supplier",
+      "note": "canonical",
+      "negative_control": false,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    },
+    {
+      "case_id": "clean-002",
+      "family": "clean_us_supplier",
+      "note": "canonical",
+      "negative_control": false,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    },
+    {
+      "case_id": "clean-003",
+      "family": "clean_us_supplier",
+      "note": "canonical",
+      "negative_control": false,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    },
+    {
+      "case_id": "clean-004",
+      "family": "clean_us_supplier",
+      "note": "canonical",
+      "negative_control": false,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    },
+    {
+      "case_id": "clean-005",
+      "family": "clean_us_supplier",
+      "note": "canonical",
+      "negative_control": false,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    },
+    {
+      "case_id": "clean-006",
+      "family": "clean_us_supplier",
+      "note": "textual variation, must not be flagged",
+      "negative_control": true,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    },
+    {
+      "case_id": "clean-007",
+      "family": "clean_us_supplier",
+      "note": "textual variation, must not be flagged",
+      "negative_control": true,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    },
+    {
+      "case_id": "clean-008",
+      "family": "clean_us_supplier",
+      "note": "textual variation, must not be flagged",
+      "negative_control": true,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    },
+    {
+      "case_id": "clean-009",
+      "family": "clean_us_supplier",
+      "note": "textual variation, must not be flagged",
+      "negative_control": true,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    },
+    {
+      "case_id": "clean-010",
+      "family": "clean_us_supplier",
+      "note": "textual variation, must not be flagged",
+      "negative_control": true,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    },
+    {
+      "case_id": "expiring-011",
+      "family": "expiring_insurance",
+      "note": "coverage lapses inside the 30-day warning window",
+      "negative_control": false,
+      "expected_route": "compliance_review",
+      "actual_route": "compliance_review",
+      "correct": true,
+      "score": 10,
+      "level": "medium",
+      "severity": "medium",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "DOCUMENT_EXPIRING_SOON",
+          "severity": "medium",
+          "points": 10
+        }
+      ],
+      "codes": [
+        "DOCUMENT_EXPIRING_SOON"
+      ]
+    },
+    {
+      "case_id": "expiring-012",
+      "family": "expiring_insurance",
+      "note": "coverage lapses inside the 30-day warning window",
+      "negative_control": false,
+      "expected_route": "compliance_review",
+      "actual_route": "compliance_review",
+      "correct": true,
+      "score": 10,
+      "level": "medium",
+      "severity": "medium",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "DOCUMENT_EXPIRING_SOON",
+          "severity": "medium",
+          "points": 10
+        }
+      ],
+      "codes": [
+        "DOCUMENT_EXPIRING_SOON"
+      ]
+    },
+    {
+      "case_id": "expiring-013",
+      "family": "expiring_insurance",
+      "note": "coverage lapses inside the 30-day warning window",
+      "negative_control": false,
+      "expected_route": "compliance_review",
+      "actual_route": "compliance_review",
+      "correct": true,
+      "score": 10,
+      "level": "medium",
+      "severity": "medium",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "DOCUMENT_EXPIRING_SOON",
+          "severity": "medium",
+          "points": 10
+        }
+      ],
+      "codes": [
+        "DOCUMENT_EXPIRING_SOON"
+      ]
+    },
+    {
+      "case_id": "expiring-014",
+      "family": "expiring_insurance",
+      "note": "coverage lapses inside the 30-day warning window",
+      "negative_control": false,
+      "expected_route": "compliance_review",
+      "actual_route": "compliance_review",
+      "correct": true,
+      "score": 10,
+      "level": "medium",
+      "severity": "medium",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "DOCUMENT_EXPIRING_SOON",
+          "severity": "medium",
+          "points": 10
+        }
+      ],
+      "codes": [
+        "DOCUMENT_EXPIRING_SOON"
+      ]
+    },
+    {
+      "case_id": "expiring-015",
+      "family": "expiring_insurance",
+      "note": "coverage lapses inside the 30-day warning window",
+      "negative_control": false,
+      "expected_route": "compliance_review",
+      "actual_route": "compliance_review",
+      "correct": true,
+      "score": 10,
+      "level": "medium",
+      "severity": "medium",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "DOCUMENT_EXPIRING_SOON",
+          "severity": "medium",
+          "points": 10
+        }
+      ],
+      "codes": [
+        "DOCUMENT_EXPIRING_SOON"
+      ]
+    },
+    {
+      "case_id": "expiring-016",
+      "family": "expiring_insurance",
+      "note": "coverage lapses inside the 30-day warning window",
+      "negative_control": false,
+      "expected_route": "compliance_review",
+      "actual_route": "compliance_review",
+      "correct": true,
+      "score": 10,
+      "level": "medium",
+      "severity": "medium",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "DOCUMENT_EXPIRING_SOON",
+          "severity": "medium",
+          "points": 10
+        }
+      ],
+      "codes": [
+        "DOCUMENT_EXPIRING_SOON"
+      ]
+    },
+    {
+      "case_id": "expiring-017",
+      "family": "expiring_insurance",
+      "note": "coverage lapses inside the 30-day warning window",
+      "negative_control": false,
+      "expected_route": "compliance_review",
+      "actual_route": "compliance_review",
+      "correct": true,
+      "score": 10,
+      "level": "medium",
+      "severity": "medium",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "DOCUMENT_EXPIRING_SOON",
+          "severity": "medium",
+          "points": 10
+        }
+      ],
+      "codes": [
+        "DOCUMENT_EXPIRING_SOON"
+      ]
+    },
+    {
+      "case_id": "expiring-018",
+      "family": "expiring_insurance",
+      "note": "coverage lapses inside the 30-day warning window",
+      "negative_control": false,
+      "expected_route": "compliance_review",
+      "actual_route": "compliance_review",
+      "correct": true,
+      "score": 10,
+      "level": "medium",
+      "severity": "medium",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "DOCUMENT_EXPIRING_SOON",
+          "severity": "medium",
+          "points": 10
+        }
+      ],
+      "codes": [
+        "DOCUMENT_EXPIRING_SOON"
+      ]
+    },
+    {
+      "case_id": "missing-019",
+      "family": "missing_mandatory",
+      "note": "missing w9",
+      "negative_control": false,
+      "expected_route": "blocked",
+      "actual_route": "blocked",
+      "correct": true,
+      "score": 15,
+      "level": "high",
+      "severity": "high",
+      "blocking": true,
+      "findings": [
+        {
+          "code": "DOCUMENT_MISSING",
+          "severity": "high",
+          "points": 15
+        }
+      ],
+      "codes": [
+        "DOCUMENT_MISSING"
+      ]
+    },
+    {
+      "case_id": "missing-020",
+      "family": "missing_mandatory",
+      "note": "missing business_registration",
+      "negative_control": false,
+      "expected_route": "blocked",
+      "actual_route": "blocked",
+      "correct": true,
+      "score": 15,
+      "level": "high",
+      "severity": "high",
+      "blocking": true,
+      "findings": [
+        {
+          "code": "DOCUMENT_MISSING",
+          "severity": "high",
+          "points": 15
+        }
+      ],
+      "codes": [
+        "DOCUMENT_MISSING"
+      ]
+    },
+    {
+      "case_id": "missing-021",
+      "family": "missing_mandatory",
+      "note": "missing w9",
+      "negative_control": false,
+      "expected_route": "blocked",
+      "actual_route": "blocked",
+      "correct": true,
+      "score": 15,
+      "level": "high",
+      "severity": "high",
+      "blocking": true,
+      "findings": [
+        {
+          "code": "DOCUMENT_MISSING",
+          "severity": "high",
+          "points": 15
+        }
+      ],
+      "codes": [
+        "DOCUMENT_MISSING"
+      ]
+    },
+    {
+      "case_id": "missing-022",
+      "family": "missing_mandatory",
+      "note": "missing business_registration",
+      "negative_control": false,
+      "expected_route": "blocked",
+      "actual_route": "blocked",
+      "correct": true,
+      "score": 15,
+      "level": "high",
+      "severity": "high",
+      "blocking": true,
+      "findings": [
+        {
+          "code": "DOCUMENT_MISSING",
+          "severity": "high",
+          "points": 15
+        }
+      ],
+      "codes": [
+        "DOCUMENT_MISSING"
+      ]
+    },
+    {
+      "case_id": "missing-023",
+      "family": "missing_mandatory",
+      "note": "missing w9",
+      "negative_control": false,
+      "expected_route": "blocked",
+      "actual_route": "blocked",
+      "correct": true,
+      "score": 15,
+      "level": "high",
+      "severity": "high",
+      "blocking": true,
+      "findings": [
+        {
+          "code": "DOCUMENT_MISSING",
+          "severity": "high",
+          "points": 15
+        }
+      ],
+      "codes": [
+        "DOCUMENT_MISSING"
+      ]
+    },
+    {
+      "case_id": "missing-024",
+      "family": "missing_mandatory",
+      "note": "missing business_registration",
+      "negative_control": false,
+      "expected_route": "blocked",
+      "actual_route": "blocked",
+      "correct": true,
+      "score": 15,
+      "level": "high",
+      "severity": "high",
+      "blocking": true,
+      "findings": [
+        {
+          "code": "DOCUMENT_MISSING",
+          "severity": "high",
+          "points": 15
+        }
+      ],
+      "codes": [
+        "DOCUMENT_MISSING"
+      ]
+    },
+    {
+      "case_id": "missing-025",
+      "family": "missing_mandatory",
+      "note": "missing w9",
+      "negative_control": false,
+      "expected_route": "blocked",
+      "actual_route": "blocked",
+      "correct": true,
+      "score": 15,
+      "level": "high",
+      "severity": "high",
+      "blocking": true,
+      "findings": [
+        {
+          "code": "DOCUMENT_MISSING",
+          "severity": "high",
+          "points": 15
+        }
+      ],
+      "codes": [
+        "DOCUMENT_MISSING"
+      ]
+    },
+    {
+      "case_id": "missing-026",
+      "family": "missing_mandatory",
+      "note": "missing business_registration",
+      "negative_control": false,
+      "expected_route": "blocked",
+      "actual_route": "blocked",
+      "correct": true,
+      "score": 15,
+      "level": "high",
+      "severity": "high",
+      "blocking": true,
+      "findings": [
+        {
+          "code": "DOCUMENT_MISSING",
+          "severity": "high",
+          "points": 15
+        }
+      ],
+      "codes": [
+        "DOCUMENT_MISSING"
+      ]
+    },
+    {
+      "case_id": "geo-027",
+      "family": "high_risk_geography",
+      "note": "domiciled in RU",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 15,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "HIGH_RISK_GEOGRAPHY",
+          "severity": "high",
+          "points": 15
+        }
+      ],
+      "codes": [
+        "HIGH_RISK_GEOGRAPHY"
+      ]
+    },
+    {
+      "case_id": "geo-028",
+      "family": "high_risk_geography",
+      "note": "domiciled in RU",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 15,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "HIGH_RISK_GEOGRAPHY",
+          "severity": "high",
+          "points": 15
+        }
+      ],
+      "codes": [
+        "HIGH_RISK_GEOGRAPHY"
+      ]
+    },
+    {
+      "case_id": "geo-029",
+      "family": "high_risk_geography",
+      "note": "domiciled in RU",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 15,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "HIGH_RISK_GEOGRAPHY",
+          "severity": "high",
+          "points": 15
+        }
+      ],
+      "codes": [
+        "HIGH_RISK_GEOGRAPHY"
+      ]
+    },
+    {
+      "case_id": "geo-030",
+      "family": "high_risk_geography",
+      "note": "domiciled in RU",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 15,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "HIGH_RISK_GEOGRAPHY",
+          "severity": "high",
+          "points": 15
+        }
+      ],
+      "codes": [
+        "HIGH_RISK_GEOGRAPHY"
+      ]
+    },
+    {
+      "case_id": "geo-031",
+      "family": "high_risk_geography",
+      "note": "domiciled in RU",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 15,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "HIGH_RISK_GEOGRAPHY",
+          "severity": "high",
+          "points": 15
+        }
+      ],
+      "codes": [
+        "HIGH_RISK_GEOGRAPHY"
+      ]
+    },
+    {
+      "case_id": "geo-032",
+      "family": "high_risk_geography",
+      "note": "domiciled in RU",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 15,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "HIGH_RISK_GEOGRAPHY",
+          "severity": "high",
+          "points": 15
+        }
+      ],
+      "codes": [
+        "HIGH_RISK_GEOGRAPHY"
+      ]
+    },
+    {
+      "case_id": "entity-033",
+      "family": "entity_mismatch",
+      "note": "registration names a different entity",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 60,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "ENTITY_NAME_MISMATCH",
+          "severity": "high",
+          "points": 20
+        },
+        {
+          "code": "ENTITY_NAME_MISMATCH",
+          "severity": "high",
+          "points": 20
+        },
+        {
+          "code": "ENTITY_NAME_MISMATCH",
+          "severity": "high",
+          "points": 20
+        }
+      ],
+      "codes": [
+        "ENTITY_NAME_MISMATCH"
+      ]
+    },
+    {
+      "case_id": "entity-034",
+      "family": "entity_mismatch",
+      "note": "registration names a different entity",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 60,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "ENTITY_NAME_MISMATCH",
+          "severity": "high",
+          "points": 20
+        },
+        {
+          "code": "ENTITY_NAME_MISMATCH",
+          "severity": "high",
+          "points": 20
+        },
+        {
+          "code": "ENTITY_NAME_MISMATCH",
+          "severity": "high",
+          "points": 20
+        }
+      ],
+      "codes": [
+        "ENTITY_NAME_MISMATCH"
+      ]
+    },
+    {
+      "case_id": "entity-035",
+      "family": "entity_mismatch",
+      "note": "registration names a different entity",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 60,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "ENTITY_NAME_MISMATCH",
+          "severity": "high",
+          "points": 20
+        },
+        {
+          "code": "ENTITY_NAME_MISMATCH",
+          "severity": "high",
+          "points": 20
+        },
+        {
+          "code": "ENTITY_NAME_MISMATCH",
+          "severity": "high",
+          "points": 20
+        }
+      ],
+      "codes": [
+        "ENTITY_NAME_MISMATCH"
+      ]
+    },
+    {
+      "case_id": "entity-036",
+      "family": "entity_mismatch",
+      "note": "registration names a different entity",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 60,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "ENTITY_NAME_MISMATCH",
+          "severity": "high",
+          "points": 20
+        },
+        {
+          "code": "ENTITY_NAME_MISMATCH",
+          "severity": "high",
+          "points": 20
+        },
+        {
+          "code": "ENTITY_NAME_MISMATCH",
+          "severity": "high",
+          "points": 20
+        }
+      ],
+      "codes": [
+        "ENTITY_NAME_MISMATCH"
+      ]
+    },
+    {
+      "case_id": "banking-037",
+      "family": "banking_mismatch",
+      "note": "payee and account holder differ",
+      "negative_control": false,
+      "expected_route": "escalate",
+      "actual_route": "escalate",
+      "correct": true,
+      "score": 30,
+      "level": "critical",
+      "severity": "critical",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "BANKING_NAME_MISMATCH",
+          "severity": "critical",
+          "points": 30
+        }
+      ],
+      "codes": [
+        "BANKING_NAME_MISMATCH"
+      ]
+    },
+    {
+      "case_id": "banking-038",
+      "family": "banking_mismatch",
+      "note": "payee and account holder differ",
+      "negative_control": false,
+      "expected_route": "escalate",
+      "actual_route": "escalate",
+      "correct": true,
+      "score": 30,
+      "level": "critical",
+      "severity": "critical",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "BANKING_NAME_MISMATCH",
+          "severity": "critical",
+          "points": 30
+        }
+      ],
+      "codes": [
+        "BANKING_NAME_MISMATCH"
+      ]
+    },
+    {
+      "case_id": "banking-039",
+      "family": "banking_mismatch",
+      "note": "payee and account holder differ",
+      "negative_control": false,
+      "expected_route": "escalate",
+      "actual_route": "escalate",
+      "correct": true,
+      "score": 30,
+      "level": "critical",
+      "severity": "critical",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "BANKING_NAME_MISMATCH",
+          "severity": "critical",
+          "points": 30
+        }
+      ],
+      "codes": [
+        "BANKING_NAME_MISMATCH"
+      ]
+    },
+    {
+      "case_id": "banking-040",
+      "family": "banking_mismatch",
+      "note": "payee and account holder differ",
+      "negative_control": false,
+      "expected_route": "escalate",
+      "actual_route": "escalate",
+      "correct": true,
+      "score": 30,
+      "level": "critical",
+      "severity": "critical",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "BANKING_NAME_MISMATCH",
+          "severity": "critical",
+          "points": 30
+        }
+      ],
+      "codes": [
+        "BANKING_NAME_MISMATCH"
+      ]
+    },
+    {
+      "case_id": "expired-041",
+      "family": "expired_documents",
+      "note": "coverage already lapsed",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 25,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "DOCUMENT_EXPIRED",
+          "severity": "high",
+          "points": 25
+        }
+      ],
+      "codes": [
+        "DOCUMENT_EXPIRED"
+      ]
+    },
+    {
+      "case_id": "expired-042",
+      "family": "expired_documents",
+      "note": "coverage already lapsed",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 25,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "DOCUMENT_EXPIRED",
+          "severity": "high",
+          "points": 25
+        }
+      ],
+      "codes": [
+        "DOCUMENT_EXPIRED"
+      ]
+    },
+    {
+      "case_id": "expired-043",
+      "family": "expired_documents",
+      "note": "coverage already lapsed",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 25,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "DOCUMENT_EXPIRED",
+          "severity": "high",
+          "points": 25
+        }
+      ],
+      "codes": [
+        "DOCUMENT_EXPIRED"
+      ]
+    },
+    {
+      "case_id": "expired-044",
+      "family": "expired_documents",
+      "note": "coverage already lapsed",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 25,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "DOCUMENT_EXPIRED",
+          "severity": "high",
+          "points": 25
+        }
+      ],
+      "codes": [
+        "DOCUMENT_EXPIRED"
+      ]
+    },
+    {
+      "case_id": "expired-045",
+      "family": "expired_documents",
+      "note": "coverage already lapsed",
+      "negative_control": false,
+      "expected_route": "senior_review",
+      "actual_route": "senior_review",
+      "correct": true,
+      "score": 25,
+      "level": "high",
+      "severity": "high",
+      "blocking": false,
+      "findings": [
+        {
+          "code": "DOCUMENT_EXPIRED",
+          "severity": "high",
+          "points": 25
+        }
+      ],
+      "codes": [
+        "DOCUMENT_EXPIRED"
+      ]
+    },
+    {
+      "case_id": "renewal-046",
+      "family": "clean_renewal",
+      "note": "renewal with current documents",
+      "negative_control": false,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    },
+    {
+      "case_id": "renewal-047",
+      "family": "clean_renewal",
+      "note": "renewal with current documents",
+      "negative_control": false,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    },
+    {
+      "case_id": "renewal-048",
+      "family": "clean_renewal",
+      "note": "renewal with current documents",
+      "negative_control": false,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    },
+    {
+      "case_id": "renewal-049",
+      "family": "clean_renewal",
+      "note": "renewal with current documents",
+      "negative_control": false,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    },
+    {
+      "case_id": "renewal-050",
+      "family": "clean_renewal",
+      "note": "renewal with current documents",
+      "negative_control": false,
+      "expected_route": "auto_approve",
+      "actual_route": "auto_approve",
+      "correct": true,
+      "score": 0,
+      "level": "low",
+      "severity": "low",
+      "blocking": false,
+      "findings": [],
+      "codes": []
+    }
+  ]
+}

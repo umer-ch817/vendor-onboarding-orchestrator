@@ -1,0 +1,72 @@
+/* DataTable component styles - supplements the design system in index.css */
+
+.table-container {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.table th.sortable {
+  user-select: none;
+}
+
+.table th.sortable:hover {
+  background: var(--color-surface-hover);
+}
+
+.th-content {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.table-checkbox {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.table tr.clickable {
+  cursor: pointer;
+}
+
+.table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.pagination-info {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Row-level severity colouring, driven by rowClassName in the caller. */
+.table tr.row-critical td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-critical);
+}
+
+.table tr.row-high td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-high);
+}
+
+.table tr.row-medium td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-medium);
+}
+
+.table tr.row-low td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-low);
+}

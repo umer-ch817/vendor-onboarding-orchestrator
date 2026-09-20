@@ -1,0 +1,40 @@
+# Secrets — .env is per-machine; .env.example is the committed template.
+.env
+.env.local
+.env.*.local
+
+# Python
+backend/.venv/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Local runtime state produced by scripts/start-dev.sh and the app itself.
+logs/
+*.log
+# Uploaded documents are demo data written at runtime, not source.
+documents/uploads/
+
+# n8n runtime state (its sqlite DB, crash journal and event log)
+# The workflows themselves, in n8n/workflows/, ARE source.
+.n8n/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp

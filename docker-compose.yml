@@ -1,0 +1,102 @@
+# =============================================================================
+# Vendor Onboarding & Risk Orchestrator — Docker Compose
+# =============================================================================
+#
+# This compose file runs the INFRASTRUCTURE services only:
+#   - PostgreSQL (required)
+#   - Mock ERP & Compliance (optional, for integration testing)
+#   - n8n (optional, for workflow orchestration)
+#
+# The BACKEND and FRONTEND run NATIVELY on the host:
+#   - Backend:  `cd backend && uvicorn app.main:app --reload --port 8000`
+#   - Frontend: `cd frontend && npm run dev`
+#
+# This avoids the Docker build blockers (no npm registry access, no package-lock.json).
+# See RUNBOOK.md for the native run commands.
+# =============================================================================
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: vendor-postgres
+    environment:
+      POSTGRES_USER: vendoruser
+      POSTGRES_PASSWORD: vendorpass
+      POSTGRES_DB: vendordb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vendoruser -d vendordb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mock-erp:
+    build:
+      context: ./mock-services
+      dockerfile: Dockerfile.erp
+    container_name: vendor-mock-erp
+    ports:
+      - "8001:8001"
+    # python:*-slim ships neither wget nor curl, so probe with the stdlib.
+    # Without this the container is reported "unhealthy" while serving fine.
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/health').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mock-compliance:
+    build:
+      context: ./mock-services
+      dockerfile: Dockerfile.compliance
+    container_name: vendor-mock-compliance
+    ports:
+      - "8002:8002"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8002/health').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: vendor-n8n
+    environment:
+      # N8N_BASIC_AUTH_* was removed in n8n 1.0. n8n 2.x uses built-in user
+      # management: the first visit to the editor creates the owner account,
+      # so there are no default credentials to bake in.
+      # N8N_WEBHOOK_URL, not WEBHOOK_URL: n8n 2.x deprecated the latter and
+      # logs a warning on every start ("Use N8N_WEBHOOK_URL instead").
+      N8N_WEBHOOK_URL: http://localhost:5678
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      GENERIC_TIMEZONE: UTC
+      TZ: UTC
+      VOR_BACKEND_URL: http://host.docker.internal:8000
+      VOR_CALLBACK_SECRET: ${N8N_API_KEY:-n8n-api-key}
+      VOR_NOTIFICATION_URL: http://host.docker.internal:8000
+      # The workflows read their backend URL and callback secret out of the
+      # container environment via $env.* expressions. n8n blocks that by
+      # default, and without this the expressions resolve to empty, the
+      # callback arrives without a valid X-N8N-Secret and the backend rejects
+      # it -- the workflow "succeeds" while recording nothing.
+      # Tradeoff: any n8n expression can then read any variable in this
+      # container. Acceptable for a local demo; see docs/decisions.md.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/.n8n/workflows
+    depends_on:
+      - mock-erp
+      - mock-compliance
+
+volumes:
+  postgres_data:
+  n8n_data:

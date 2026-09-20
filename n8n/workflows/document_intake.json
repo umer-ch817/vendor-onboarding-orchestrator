@@ -1,0 +1,465 @@
+{
+  "id": "98467778-3134-51f0-922a-fbc000105cd2",
+  "name": "Vendor Onboarding \u2014 Document Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vendor-onboarding/document",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "73438bf5-6a85-46ac-b296-cd2ecc7d661b",
+      "name": "Document Triggered",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "notes": "POST /webhook/vendor-onboarding/document with {document_id, action, case_id, metadata}. action is 'process' or 'reprocess'.",
+      "webhookId": "d275e986-4122-4c17-aec7-5d1ea0e11100"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7bcb2ea8-6513-4653-89ce-d33246cefd63",
+              "name": "backend_base_url",
+              "value": "={{ $env.VOR_BACKEND_URL }}",
+              "type": "string"
+            },
+            {
+              "id": "cdd34cc3-8d3c-4c7f-9276-8ca8aa74c6a0",
+              "name": "notification_base_url",
+              "value": "={{ $env.VOR_NOTIFICATION_URL }}",
+              "type": "string"
+            },
+            {
+              "id": "faa583c5-d66e-4a97-bbd5-b6bd85c81573",
+              "name": "callback_secret",
+              "value": "={{ $env.VOR_CALLBACK_SECRET }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c2500270-746c-4744-8c66-42ea62d0677f",
+      "name": "Workflow Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "notes": "Only place configuration is declared. The secret is read from the container environment by expression so it is never written into this workflow file."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const ALLOWED_ACTIONS = ['process', 'reprocess'];\n\nconst out = [];\nfor (const item of $input.all()) {\n  const body = (item.json && item.json.body) ? item.json.body : item.json;\n\n  if (body.document_id === undefined || body.document_id === null || body.document_id === '') {\n    throw new Error('Trigger rejected: document_id is required.');\n  }\n\n  const docId = Number(body.document_id);\n  if (!Number.isInteger(docId) || docId <= 0) {\n    throw new Error('Trigger rejected: document_id must be a positive integer, received ' + JSON.stringify(body.document_id) + '.');\n  }\n\n  const action = String(body.action || 'process').toLowerCase();\n  if (!ALLOWED_ACTIONS.includes(action)) {\n    throw new Error('Trigger rejected: unknown action ' + JSON.stringify(action) + '. Allowed: ' + ALLOWED_ACTIONS.join(', ') + '.');\n  }\n\n  out.push({\n    json: Object.assign({}, item.json, {\n      document_id: docId,\n      action: action,\n      case_id: body.case_id ? Number(body.case_id) : null,\n      trigger_metadata: body.metadata || {},\n      started_at: new Date().toISOString(),\n    }),\n  });\n}\nreturn out;"
+      },
+      "id": "c7a657d7-2ec5-4f45-b9eb-9bd1118186f8",
+      "name": "Validate Trigger",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "notes": "Rejects a malformed trigger before it can build a URL."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/webhooks/n8n",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $('Workflow Settings').first().json.callback_secret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({event_type: 'DOCUMENT_PROCESSING_DISPATCHED', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({action: $json.action, trigger_metadata: $json.trigger_metadata}))}) }}"
+      },
+      "id": "1ed1837b-952d-4c4f-8183-0aa12eb9f35c",
+      "name": "Record Trigger Started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "notes": "Records DOCUMENT_PROCESSING_DISPATCHED in the case audit trail.",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/documents/{{ $json.document_id }}/process",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "63460c19-6590-47f2-8cd5-241406bea267",
+      "name": "Process Document",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "notes": "Runs classification and extraction. Retries on transient failure.",
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/webhooks/n8n",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $('Workflow Settings').first().json.callback_secret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({event_type: 'RETRY_EXHAUSTED', case_id: Number($('Validate Trigger').first().json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({stage: 'document_processing', detail: 'Document processing call failed after 3 attempts.'}))}) }}"
+      },
+      "id": "7afc6138-56dd-4343-917f-412566ae5bb2",
+      "name": "Record Process Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        180
+      ],
+      "notes": "Terminal. Reached only after retries are spent.",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// The document processing endpoint returns the extraction result directly in\n// the response body. It is synchronous in this prototype, but the shape is\n// already asynchronous: the caller receives the result and the workflow\n// records what happened. If the backend ever moves to async extraction, the\n// workflow only changes the node that polls the status; the recording path is\n// identical.\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json || {};\n  const err = j.error || null;\n  const status = Number(j.statusCode || (err && (err.httpCode || err.status)) || 0);\n  const ok = !err && status >= 200 && status < 300;\n\n  let state;\n  if (ok) {\n    state = j.success ? 'extracted' : 'extraction_failed';\n  } else if (status === 409) {\n    state = 'already_processing';\n  } else if (status === 404) {\n    state = 'document_not_found';\n  } else {\n    state = 'failed';\n  }\n\n  out.push({\n    json: Object.assign({}, j, {\n      document_id: $json.document_id || j.document_id,\n      case_id: $json.case_id || j.case_id,\n      processing_state: state,\n      processing_ok: ok ? 'yes' : 'no',\n      processing_http_status: status,\n      processing_detail: {\n        extracted: 'Document classified and fields extracted.',\n        extraction_failed: 'Classification succeeded but extraction did not meet confidence thresholds.',\n        already_processing: 'Document was already being processed; skipping re-entry.',\n        document_not_found: 'Document ' + ($json.document_id || j.document_id) + ' does not exist.',\n        failed: 'Process call failed with HTTP ' + status + '.',\n      }[state],\n      extraction_confidence: j.extraction_confidence,\n      document_type: j.document_type,\n      extracted_fields: j.extracted_fields || {},\n      requires_verification: j.requires_verification,\n      failure_reason: j.failure_reason,\n      validation_errors: j.validation_errors,\n      warnings: j.warnings,\n    }),\n  });\n}\nreturn out;"
+      },
+      "id": "8d1a061a-9ec3-43cb-9a39-0e7993a2126b",
+      "name": "Interpret Process",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -140
+      ],
+      "notes": "Maps the synchronous processing response to a state."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d37aad66-72af-4cdd-972f-24b64874e1e3",
+              "leftValue": "={{ $json.processing_ok }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1e8aced0-a5ac-426b-a470-ad45f7ebfe42",
+      "name": "Processing Ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        -140
+      ],
+      "notes": "A processing failure (not a 409, not a 404) is terminal."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/webhooks/n8n",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $('Workflow Settings').first().json.callback_secret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({event_type: 'WORKFLOW_FAILED', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({stage: 'document_processing', state: $json.processing_state, detail: $json.processing_detail, http_status: $json.processing_http_status}))}) }}"
+      },
+      "id": "666215b5-be3a-4c3c-b4cb-cbbc121e21d8",
+      "name": "Record Processing Failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        60
+      ],
+      "notes": "Terminal. The extraction did not succeed.",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/documents/{{ $json.document_id }}/verify",
+        "options": {
+          "timeout": 30000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({verified: true, actor_user_id: null}) }}"
+      },
+      "id": "70b4e6ec-bd65-4266-8a53-7b15dcaa493d",
+      "name": "Verify Extraction",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        -340
+      ],
+      "notes": "Records human verification when extraction confidence was low.",
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prior = $('Validate Trigger').first().json;\n\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json || {};\n  const err = j.error || null;\n  const status = Number(j.statusCode || (err && (err.httpCode || err.status)) || 0);\n  const ok = !err && status >= 200 && status < 300;\n\n  out.push({\n    json: Object.assign({}, prior, {\n      verification_state: ok ? 'verified' : 'verification_failed',\n      verification_ok: ok ? 'yes' : 'no',\n      verification_http_status: status,\n      verification_detail: ok\n        ? 'Human verification recorded.'\n        : 'Verification call failed with HTTP ' + status + '.',\n    }),\n  });\n}\nreturn out;"
+      },
+      "id": "7bafa705-1035-4079-ae0a-9ec2632f81a3",
+      "name": "Interpret Verify",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        -340
+      ],
+      "notes": "Records verification outcome."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/webhooks/n8n",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $('Workflow Settings').first().json.callback_secret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({event_type: 'WORKFLOW_COMPLETED', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({outcome: 'document_processed', document_id: $json.document_id, state: $json.processing_state, verified: $json.verification_state || 'not_required', confidence: $json.extraction_confidence, document_type: $json.document_type, fields_extracted: Object.keys($json.extracted_fields || {}).length}))}) }}"
+      },
+      "id": "261864cc-f014-4f39-a11c-d52cbed20056",
+      "name": "Record Document Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        -340
+      ],
+      "notes": "Terminal success. Document processed and optionally verified.",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## Vendor Onboarding \u2014 Document Intake\n\nTriggered when a document is uploaded or a reviewer clicks Re-process.\n\n**This workflow contains no extraction logic.** It posts to the document service, retries transient failures, and records the outcome.\n\nA document that does not meet confidence thresholds is flagged for human verification on the document detail page, not reprocessed automatically.",
+        "height": 280,
+        "width": 520,
+        "color": 4
+      },
+      "id": "7cda8b02-ff4b-41e9-94fe-6dc5dde73a13",
+      "name": "Note 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -400
+      ]
+    }
+  ],
+  "connections": {
+    "Document Triggered": {
+      "main": [
+        [
+          {
+            "node": "Workflow Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Settings": {
+      "main": [
+        [
+          {
+            "node": "Validate Trigger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Trigger": {
+      "main": [
+        [
+          {
+            "node": "Record Trigger Started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Trigger Started": {
+      "main": [
+        [
+          {
+            "node": "Process Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Document": {
+      "main": [
+        [
+          {
+            "node": "Interpret Process",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Process Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpret Process": {
+      "main": [
+        [
+          {
+            "node": "Processing Ok?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processing Ok?": {
+      "main": [
+        [
+          {
+            "node": "Verify Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Processing Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Extraction": {
+      "main": [
+        [
+          {
+            "node": "Interpret Verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpret Verify": {
+      "main": [
+        [
+          {
+            "node": "Record Document Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "tags": [
+    {
+      "id": "75f4f332-8bc7-525c-a734-005f44b8a928",
+      "name": "vendor-onboarding"
+    },
+    {
+      "id": "53d08df1-8394-563e-9f69-5820f01e818b",
+      "name": "orchestration"
+    }
+  ]
+}

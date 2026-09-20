@@ -1,0 +1,93 @@
+/* Layout component styles - supplements the design system in index.css */
+
+.app-shell.collapsed .app-sidebar {
+  width: 64px;
+}
+
+.app-shell.collapsed .app-main {
+  margin-left: 64px;
+}
+
+.app-shell.collapsed .nav-label {
+  text-align: center;
+}
+
+.app-shell.collapsed .nav-item {
+  justify-content: center;
+}
+
+.app-shell.collapsed .nav-badge {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .app-sidebar {
+    position: fixed;
+    left: 0;
+    top: var(--header-height);
+    bottom: 0;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    width: var(--sidebar-width);
+  }
+
+  .app-shell.mobile-open .app-sidebar {
+    transform: translateX(0);
+  }
+
+  .app-main {
+    margin-left: 0;
+  }
+}
+
+/* Mobile menu button - hidden by default, shown on mobile via JS toggle */
+.mobile-menu-btn {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: flex;
+  }
+}
+
+/* Ensure the header has proper z-index for mobile */
+.app-header {
+  z-index: 100;
+}
+
+/* Active nav item gets a subtle left border */
+.nav-item.active {
+  border-left: 3px solid var(--color-primary);
+  padding-left: calc(var(--space-3) - 3px);
+}
+
+.app-shell.collapsed .nav-item.active {
+  border-left: none;
+  border-bottom: 3px solid var(--color-primary);
+  padding-left: var(--space-3);
+  padding-bottom: calc(var(--space-2) - 3px);
+}
+
+/* Subtle hover for the sidebar */
+.nav-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* Header title truncation */
+.header-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.app-shell.collapsed .header-title {
+  max-width: none;
+}

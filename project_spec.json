@@ -1,0 +1,1868 @@
+{
+  "spec_version": "1.0.0",
+  "generated_at": "2026-09-19T19:50:55.446728+00:00",
+  "generator": "tools/build_project_spec.py",
+  "project": {
+    "name": "Vendor Onboarding & Risk Orchestrator",
+    "version": "1.0.0",
+    "summary": "A vendor onboarding and risk workflow where n8n orchestrates and a FastAPI backend decides. Deterministic rules and explainable additive scoring produce every route; the AI layer contributes advisory signals only and can never approve, reject, or move a case.",
+    "architecture": {
+      "orchestration": "n8n (webhooks, retries, scheduling, routing, notifications)",
+      "business_logic": "FastAPI backend (rules, scoring, state machine, AI calls)",
+      "state": "PostgreSQL via async SQLAlchemy 2.0",
+      "interface": "React + Vite dashboard",
+      "ai_provider_default": "mock"
+    },
+    "data_classification": "Demo Dataset \u2014 all records are synthetic."
+  },
+  "enums": {
+    "UserRole": [
+      "admin",
+      "procurement_analyst",
+      "procurement_manager",
+      "compliance_reviewer",
+      "finance_reviewer"
+    ],
+    "VendorStatus": [
+      "active",
+      "inactive",
+      "pending",
+      "suspended",
+      "rejected"
+    ],
+    "RiskLevel": [
+      "low",
+      "medium",
+      "high",
+      "critical"
+    ],
+    "WorkflowStatus": [
+      "draft",
+      "submitted",
+      "document_collection",
+      "extraction",
+      "validation",
+      "risk_analysis",
+      "review_required",
+      "approval_pending",
+      "approved",
+      "rejected",
+      "onboarding_complete",
+      "blocked"
+    ],
+    "DocumentStatus": [
+      "pending",
+      "processing",
+      "extracted",
+      "verified",
+      "failed",
+      "expired"
+    ],
+    "DocumentType": [
+      "w9",
+      "certificate_of_insurance",
+      "business_registration",
+      "banking_confirmation",
+      "supplier_questionnaire",
+      "master_services_agreement",
+      "voided_check",
+      "tax_certificate",
+      "other"
+    ],
+    "ExceptionSeverity": [
+      "low",
+      "medium",
+      "high",
+      "critical"
+    ],
+    "ExceptionStatus": [
+      "open",
+      "in_progress",
+      "resolved",
+      "escalated",
+      "closed"
+    ],
+    "ApprovalStatus": [
+      "pending",
+      "approved",
+      "rejected",
+      "escalated"
+    ],
+    "ActorType": [
+      "user",
+      "system",
+      "ai",
+      "n8n"
+    ]
+  },
+  "models": [
+    {
+      "table": "users",
+      "class": "User",
+      "columns": [
+        {
+          "name": "id",
+          "type": "Integer",
+          "primary_key": true
+        },
+        {
+          "name": "email",
+          "type": "Unknown",
+          "unique": true,
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "role",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "department",
+          "type": "Unknown"
+        },
+        {
+          "name": "is_active",
+          "type": "Boolean",
+          "default": true
+        },
+        {
+          "name": "created_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "updated_at",
+          "type": "DateTime"
+        }
+      ],
+      "indexes": [],
+      "unique_constraints": [],
+      "relationships": [
+        "approvals -> Approval",
+        "exceptions_resolved -> Exception"
+      ]
+    },
+    {
+      "table": "vendors",
+      "class": "Vendor",
+      "columns": [
+        {
+          "name": "id",
+          "type": "Integer",
+          "primary_key": true
+        },
+        {
+          "name": "legal_name",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "trade_name",
+          "type": "Unknown"
+        },
+        {
+          "name": "vendor_type",
+          "type": "Unknown"
+        },
+        {
+          "name": "industry",
+          "type": "Unknown"
+        },
+        {
+          "name": "tax_id",
+          "type": "Unknown"
+        },
+        {
+          "name": "website",
+          "type": "Unknown"
+        },
+        {
+          "name": "contact_name",
+          "type": "Unknown"
+        },
+        {
+          "name": "contact_email",
+          "type": "Unknown"
+        },
+        {
+          "name": "contact_phone",
+          "type": "Unknown"
+        },
+        {
+          "name": "address_line1",
+          "type": "Unknown"
+        },
+        {
+          "name": "address_line2",
+          "type": "Unknown"
+        },
+        {
+          "name": "city",
+          "type": "Unknown"
+        },
+        {
+          "name": "state",
+          "type": "Unknown"
+        },
+        {
+          "name": "postal_code",
+          "type": "Unknown"
+        },
+        {
+          "name": "country",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "Unknown"
+        },
+        {
+          "name": "risk_level",
+          "type": "Unknown"
+        },
+        {
+          "name": "risk_score",
+          "type": "Integer",
+          "default": 0
+        },
+        {
+          "name": "bank_name",
+          "type": "Unknown"
+        },
+        {
+          "name": "bank_account_last4",
+          "type": "Unknown"
+        },
+        {
+          "name": "created_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "updated_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "onboarding_completed_at",
+          "type": "DateTime"
+        }
+      ],
+      "indexes": [
+        "ix_vendors_legal_name_trgm"
+      ],
+      "unique_constraints": [],
+      "relationships": [
+        "onboarding_cases -> OnboardingCase",
+        "documents -> Document",
+        "risk_signals -> RiskSignal"
+      ]
+    },
+    {
+      "table": "onboarding_cases",
+      "class": "OnboardingCase",
+      "columns": [
+        {
+          "name": "id",
+          "type": "Integer",
+          "primary_key": true
+        },
+        {
+          "name": "case_number",
+          "type": "Unknown",
+          "unique": true,
+          "nullable": false
+        },
+        {
+          "name": "vendor_id",
+          "type": "Integer",
+          "nullable": false
+        },
+        {
+          "name": "requester_name",
+          "type": "Unknown"
+        },
+        {
+          "name": "requester_email",
+          "type": "Unknown"
+        },
+        {
+          "name": "requester_department",
+          "type": "Unknown"
+        },
+        {
+          "name": "workflow_status",
+          "type": "Unknown"
+        },
+        {
+          "name": "onboarding_type",
+          "type": "Unknown"
+        },
+        {
+          "name": "priority",
+          "type": "Unknown",
+          "default": "normal"
+        },
+        {
+          "name": "risk_score",
+          "type": "Integer",
+          "default": 0
+        },
+        {
+          "name": "risk_level",
+          "type": "Unknown"
+        },
+        {
+          "name": "completion_percentage",
+          "type": "Integer",
+          "default": 0
+        },
+        {
+          "name": "documents_received",
+          "type": "Integer",
+          "default": 0
+        },
+        {
+          "name": "documents_required",
+          "type": "Integer",
+          "default": 0
+        },
+        {
+          "name": "assigned_to_id",
+          "type": "Integer"
+        },
+        {
+          "name": "created_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "updated_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "completed_at",
+          "type": "DateTime"
+        }
+      ],
+      "indexes": [
+        "ix_onboarding_cases_status",
+        "ix_onboarding_cases_risk_level"
+      ],
+      "unique_constraints": [],
+      "relationships": [
+        "vendor -> Vendor",
+        "documents -> Document",
+        "risk_signals -> RiskSignal",
+        "risk_assessments -> RiskAssessment",
+        "exceptions -> Exception",
+        "approvals -> Approval",
+        "audit_events -> AuditEvent",
+        "assigned_to -> User"
+      ]
+    },
+    {
+      "table": "documents",
+      "class": "Document",
+      "columns": [
+        {
+          "name": "id",
+          "type": "Integer",
+          "primary_key": true
+        },
+        {
+          "name": "vendor_id",
+          "type": "Integer",
+          "nullable": false
+        },
+        {
+          "name": "case_id",
+          "type": "Integer",
+          "nullable": false
+        },
+        {
+          "name": "document_type",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "filename",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "file_path",
+          "type": "Unknown"
+        },
+        {
+          "name": "file_size",
+          "type": "Integer"
+        },
+        {
+          "name": "mime_type",
+          "type": "Unknown"
+        },
+        {
+          "name": "status",
+          "type": "Unknown"
+        },
+        {
+          "name": "extraction_confidence",
+          "type": "Unknown"
+        },
+        {
+          "name": "verification_status",
+          "type": "Unknown"
+        },
+        {
+          "name": "verification_notes",
+          "type": "Text"
+        },
+        {
+          "name": "verified_by_id",
+          "type": "Integer"
+        },
+        {
+          "name": "verified_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "document_date",
+          "type": "DateTime"
+        },
+        {
+          "name": "expiration_date",
+          "type": "DateTime"
+        },
+        {
+          "name": "uploaded_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "processed_at",
+          "type": "DateTime"
+        }
+      ],
+      "indexes": [
+        "ix_documents_case_type"
+      ],
+      "unique_constraints": [],
+      "relationships": [
+        "vendor -> Vendor",
+        "case -> OnboardingCase",
+        "extracted_fields -> ExtractedField",
+        "verified_by -> User"
+      ]
+    },
+    {
+      "table": "extracted_fields",
+      "class": "ExtractedField",
+      "columns": [
+        {
+          "name": "id",
+          "type": "Integer",
+          "primary_key": true
+        },
+        {
+          "name": "document_id",
+          "type": "Integer",
+          "nullable": false
+        },
+        {
+          "name": "field_name",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "field_value",
+          "type": "Text"
+        },
+        {
+          "name": "normalized_value",
+          "type": "Text"
+        },
+        {
+          "name": "confidence",
+          "type": "Unknown"
+        },
+        {
+          "name": "source_location",
+          "type": "Unknown"
+        },
+        {
+          "name": "is_valid",
+          "type": "Boolean",
+          "default": true
+        },
+        {
+          "name": "validation_errors",
+          "type": "JSON"
+        },
+        {
+          "name": "manually_corrected",
+          "type": "Boolean",
+          "default": false
+        },
+        {
+          "name": "corrected_by_id",
+          "type": "Integer"
+        },
+        {
+          "name": "corrected_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "created_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "updated_at",
+          "type": "DateTime"
+        }
+      ],
+      "indexes": [
+        "ix_extracted_fields_name_value"
+      ],
+      "unique_constraints": [
+        "document_id+field_name"
+      ],
+      "relationships": [
+        "document -> Document",
+        "corrected_by -> User"
+      ]
+    },
+    {
+      "table": "risk_signals",
+      "class": "RiskSignal",
+      "columns": [
+        {
+          "name": "id",
+          "type": "Integer",
+          "primary_key": true
+        },
+        {
+          "name": "vendor_id",
+          "type": "Integer",
+          "nullable": false
+        },
+        {
+          "name": "case_id",
+          "type": "Integer",
+          "nullable": false
+        },
+        {
+          "name": "signal_type",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "severity",
+          "type": "Unknown"
+        },
+        {
+          "name": "description",
+          "type": "Text",
+          "nullable": false
+        },
+        {
+          "name": "evidence",
+          "type": "JSON"
+        },
+        {
+          "name": "source",
+          "type": "Unknown"
+        },
+        {
+          "name": "status",
+          "type": "Unknown",
+          "default": "open"
+        },
+        {
+          "name": "resolution_notes",
+          "type": "Text"
+        },
+        {
+          "name": "resolved_by_id",
+          "type": "Integer"
+        },
+        {
+          "name": "resolved_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "detected_at",
+          "type": "DateTime"
+        }
+      ],
+      "indexes": [
+        "ix_risk_signals_type_severity"
+      ],
+      "unique_constraints": [],
+      "relationships": [
+        "vendor -> Vendor",
+        "case -> OnboardingCase",
+        "resolved_by -> User"
+      ]
+    },
+    {
+      "table": "risk_assessments",
+      "class": "RiskAssessment",
+      "columns": [
+        {
+          "name": "id",
+          "type": "Integer",
+          "primary_key": true
+        },
+        {
+          "name": "case_id",
+          "type": "Integer",
+          "nullable": false
+        },
+        {
+          "name": "overall_score",
+          "type": "Integer",
+          "nullable": false
+        },
+        {
+          "name": "risk_level",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "confidence",
+          "type": "Unknown"
+        },
+        {
+          "name": "reasoning",
+          "type": "Text"
+        },
+        {
+          "name": "risk_factors",
+          "type": "JSON"
+        },
+        {
+          "name": "recommended_action",
+          "type": "Unknown"
+        },
+        {
+          "name": "ai_model",
+          "type": "Unknown"
+        },
+        {
+          "name": "ai_prompt_version",
+          "type": "Unknown"
+        },
+        {
+          "name": "created_at",
+          "type": "DateTime"
+        }
+      ],
+      "indexes": [],
+      "unique_constraints": [],
+      "relationships": [
+        "case -> OnboardingCase"
+      ]
+    },
+    {
+      "table": "exceptions",
+      "class": "Exception",
+      "columns": [
+        {
+          "name": "id",
+          "type": "Integer",
+          "primary_key": true
+        },
+        {
+          "name": "case_id",
+          "type": "Integer",
+          "nullable": false
+        },
+        {
+          "name": "type",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "severity",
+          "type": "Unknown"
+        },
+        {
+          "name": "title",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "description",
+          "type": "Text",
+          "nullable": false
+        },
+        {
+          "name": "evidence",
+          "type": "JSON"
+        },
+        {
+          "name": "status",
+          "type": "Unknown"
+        },
+        {
+          "name": "assigned_to_id",
+          "type": "Integer"
+        },
+        {
+          "name": "resolution",
+          "type": "Text"
+        },
+        {
+          "name": "resolution_type",
+          "type": "Unknown"
+        },
+        {
+          "name": "resolved_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "created_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "updated_at",
+          "type": "DateTime"
+        }
+      ],
+      "indexes": [
+        "ix_exceptions_status_severity"
+      ],
+      "unique_constraints": [],
+      "relationships": [
+        "case -> OnboardingCase",
+        "resolver -> User"
+      ]
+    },
+    {
+      "table": "approvals",
+      "class": "Approval",
+      "columns": [
+        {
+          "name": "id",
+          "type": "Integer",
+          "primary_key": true
+        },
+        {
+          "name": "case_id",
+          "type": "Integer",
+          "nullable": false
+        },
+        {
+          "name": "approval_type",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "requested_from_id",
+          "type": "Integer",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "Unknown"
+        },
+        {
+          "name": "decision",
+          "type": "Unknown"
+        },
+        {
+          "name": "comments",
+          "type": "Text"
+        },
+        {
+          "name": "decided_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "escalated_to_id",
+          "type": "Integer"
+        },
+        {
+          "name": "escalation_reason",
+          "type": "Text"
+        },
+        {
+          "name": "created_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "updated_at",
+          "type": "DateTime"
+        }
+      ],
+      "indexes": [],
+      "unique_constraints": [],
+      "relationships": [
+        "case -> OnboardingCase",
+        "reviewer -> User",
+        "escalated_to -> User"
+      ]
+    },
+    {
+      "table": "audit_events",
+      "class": "AuditEvent",
+      "columns": [
+        {
+          "name": "id",
+          "type": "Integer",
+          "primary_key": true
+        },
+        {
+          "name": "case_id",
+          "type": "Integer"
+        },
+        {
+          "name": "actor_type",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "actor_id",
+          "type": "Integer"
+        },
+        {
+          "name": "actor_name",
+          "type": "Unknown"
+        },
+        {
+          "name": "event_type",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "description",
+          "type": "Text",
+          "nullable": false
+        },
+        {
+          "name": "input_snapshot",
+          "type": "JSON"
+        },
+        {
+          "name": "output_snapshot",
+          "type": "JSON"
+        },
+        {
+          "name": "event_metadata",
+          "type": "Unknown"
+        },
+        {
+          "name": "timestamp",
+          "type": "DateTime",
+          "nullable": false
+        }
+      ],
+      "indexes": [
+        "ix_audit_events_case_timestamp",
+        "ix_audit_events_type"
+      ],
+      "unique_constraints": [],
+      "relationships": [
+        "case -> OnboardingCase",
+        "user -> User"
+      ]
+    },
+    {
+      "table": "requirements",
+      "class": "Requirement",
+      "columns": [
+        {
+          "name": "id",
+          "type": "Integer",
+          "primary_key": true
+        },
+        {
+          "name": "code",
+          "type": "Unknown",
+          "unique": true,
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "Unknown",
+          "nullable": false
+        },
+        {
+          "name": "description",
+          "type": "Text"
+        },
+        {
+          "name": "vendor_types",
+          "type": "JSON"
+        },
+        {
+          "name": "countries",
+          "type": "JSON"
+        },
+        {
+          "name": "industries",
+          "type": "JSON"
+        },
+        {
+          "name": "risk_levels",
+          "type": "JSON"
+        },
+        {
+          "name": "document_type",
+          "type": "Unknown"
+        },
+        {
+          "name": "is_mandatory",
+          "type": "Boolean",
+          "default": true
+        },
+        {
+          "name": "validation_rules",
+          "type": "JSON"
+        },
+        {
+          "name": "is_active",
+          "type": "Boolean",
+          "default": true
+        },
+        {
+          "name": "created_at",
+          "type": "DateTime"
+        },
+        {
+          "name": "updated_at",
+          "type": "DateTime"
+        }
+      ],
+      "indexes": [],
+      "unique_constraints": [],
+      "relationships": []
+    }
+  ],
+  "api": {
+    "base_path": "/api",
+    "endpoint_count": 48,
+    "endpoints": [
+      {
+        "method": "GET",
+        "path": "/api/approvals",
+        "handler": "list_pending_approvals",
+        "tag": "Approvals",
+        "module": "app/api/approvals.py",
+        "response_model": "ApprovalListResponse"
+      },
+      {
+        "method": "POST",
+        "path": "/api/approvals",
+        "handler": "request_approval",
+        "tag": "Approvals",
+        "module": "app/api/approvals.py",
+        "response_model": "ApprovalResponse",
+        "status_code": 201
+      },
+      {
+        "method": "GET",
+        "path": "/api/approvals/authority",
+        "handler": "approval_authority",
+        "tag": "Approvals",
+        "module": "app/api/approvals.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/approvals/case/{case_id}",
+        "handler": "list_case_approvals",
+        "tag": "Approvals",
+        "module": "app/api/approvals.py",
+        "response_model": "ApprovalListResponse"
+      },
+      {
+        "method": "GET",
+        "path": "/api/approvals/reviewers",
+        "handler": "list_eligible_reviewers",
+        "tag": "Approvals",
+        "module": "app/api/approvals.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/approvals/{approval_id}",
+        "handler": "get_approval",
+        "tag": "Approvals",
+        "module": "app/api/approvals.py",
+        "response_model": "ApprovalResponse"
+      },
+      {
+        "method": "POST",
+        "path": "/api/approvals/{approval_id}/decide",
+        "handler": "decide_approval",
+        "tag": "Approvals",
+        "module": "app/api/approvals.py",
+        "response_model": "ApprovalResponse"
+      },
+      {
+        "method": "POST",
+        "path": "/api/approvals/{approval_id}/escalate",
+        "handler": "escalate_approval",
+        "tag": "Approvals",
+        "module": "app/api/approvals.py",
+        "response_model": "ApprovalResponse"
+      },
+      {
+        "method": "GET",
+        "path": "/api/audit",
+        "handler": "list_recent_events",
+        "tag": "Audit",
+        "module": "app/api/audit.py",
+        "response_model": "AuditEventListResponse"
+      },
+      {
+        "method": "GET",
+        "path": "/api/audit/case/{case_id}",
+        "handler": "get_case_timeline",
+        "tag": "Audit",
+        "module": "app/api/audit.py",
+        "response_model": "AuditEventListResponse"
+      },
+      {
+        "method": "GET",
+        "path": "/api/audit/event/{event_id}",
+        "handler": "get_event",
+        "tag": "Audit",
+        "module": "app/api/audit.py",
+        "response_model": "AuditEventResponse"
+      },
+      {
+        "method": "GET",
+        "path": "/api/audit/types",
+        "handler": "list_event_types",
+        "tag": "Audit",
+        "module": "app/api/audit.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/dashboard",
+        "handler": "get_dashboard",
+        "tag": "Dashboard",
+        "module": "app/api/dashboard.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/dashboard/metrics",
+        "handler": "get_metrics",
+        "tag": "Dashboard",
+        "module": "app/api/dashboard.py",
+        "response_model": "DashboardMetrics"
+      },
+      {
+        "method": "GET",
+        "path": "/api/documents",
+        "handler": "list_documents",
+        "tag": "Documents",
+        "module": "app/api/documents.py",
+        "response_model": "DocumentListResponse"
+      },
+      {
+        "method": "POST",
+        "path": "/api/documents/upload",
+        "handler": "upload_document",
+        "tag": "Documents",
+        "module": "app/api/documents.py",
+        "response_model": "DocumentResponse",
+        "status_code": 201
+      },
+      {
+        "method": "GET",
+        "path": "/api/documents/{document_id}",
+        "handler": "get_document",
+        "tag": "Documents",
+        "module": "app/api/documents.py",
+        "response_model": "DocumentWithExtraction"
+      },
+      {
+        "method": "POST",
+        "path": "/api/documents/{document_id}/process",
+        "handler": "process_document",
+        "tag": "Documents",
+        "module": "app/api/documents.py"
+      },
+      {
+        "method": "POST",
+        "path": "/api/documents/{document_id}/verify",
+        "handler": "verify_document",
+        "tag": "Documents",
+        "module": "app/api/documents.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/exceptions",
+        "handler": "list_exceptions",
+        "tag": "Exceptions",
+        "module": "app/api/exceptions.py",
+        "response_model": "ExceptionListResponse"
+      },
+      {
+        "method": "GET",
+        "path": "/api/exceptions/case/{case_id}",
+        "handler": "list_case_exceptions",
+        "tag": "Exceptions",
+        "module": "app/api/exceptions.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/exceptions/summary",
+        "handler": "exception_summary",
+        "tag": "Exceptions",
+        "module": "app/api/exceptions.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/exceptions/{exception_id}",
+        "handler": "get_exception",
+        "tag": "Exceptions",
+        "module": "app/api/exceptions.py",
+        "response_model": "ExceptionResponse"
+      },
+      {
+        "method": "POST",
+        "path": "/api/exceptions/{exception_id}/assign",
+        "handler": "assign_exception",
+        "tag": "Exceptions",
+        "module": "app/api/exceptions.py"
+      },
+      {
+        "method": "POST",
+        "path": "/api/exceptions/{exception_id}/resolve",
+        "handler": "resolve_exception",
+        "tag": "Exceptions",
+        "module": "app/api/exceptions.py"
+      },
+      {
+        "method": "POST",
+        "path": "/api/exceptions/{exception_id}/triage",
+        "handler": "triage_exception",
+        "tag": "Exceptions",
+        "module": "app/api/exceptions.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/onboarding",
+        "handler": "list_cases",
+        "tag": "Onboarding",
+        "module": "app/api/onboarding.py",
+        "response_model": "OnboardingCaseListResponse"
+      },
+      {
+        "method": "POST",
+        "path": "/api/onboarding",
+        "handler": "create_case",
+        "tag": "Onboarding",
+        "module": "app/api/onboarding.py",
+        "response_model": "OnboardingCaseResponse",
+        "status_code": 201
+      },
+      {
+        "method": "GET",
+        "path": "/api/onboarding/risk-summary",
+        "handler": "risk_summary",
+        "tag": "Onboarding",
+        "module": "app/api/onboarding.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/onboarding/workflow-summary",
+        "handler": "workflow_summary",
+        "tag": "Onboarding",
+        "module": "app/api/onboarding.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/onboarding/{case_id}",
+        "handler": "get_case",
+        "tag": "Onboarding",
+        "module": "app/api/onboarding.py",
+        "response_model": "OnboardingCaseDetail"
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/onboarding/{case_id}",
+        "handler": "update_case",
+        "tag": "Onboarding",
+        "module": "app/api/onboarding.py",
+        "response_model": "OnboardingCaseResponse"
+      },
+      {
+        "method": "POST",
+        "path": "/api/onboarding/{case_id}/assess",
+        "handler": "assess_case",
+        "tag": "Onboarding",
+        "module": "app/api/onboarding.py"
+      },
+      {
+        "method": "POST",
+        "path": "/api/onboarding/{case_id}/submit",
+        "handler": "submit_case",
+        "tag": "Onboarding",
+        "module": "app/api/onboarding.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/risk/case/{case_id}",
+        "handler": "get_case_risk_view",
+        "tag": "Risk Analysis",
+        "module": "app/api/risk.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/risk/case/{case_id}/assessment",
+        "handler": "get_latest_assessment",
+        "tag": "Risk Analysis",
+        "module": "app/api/risk.py",
+        "response_model": "RiskAssessmentResponse"
+      },
+      {
+        "method": "GET",
+        "path": "/api/risk/case/{case_id}/history",
+        "handler": "get_assessment_history",
+        "tag": "Risk Analysis",
+        "module": "app/api/risk.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/risk/case/{case_id}/signals",
+        "handler": "get_case_signals",
+        "tag": "Risk Analysis",
+        "module": "app/api/risk.py"
+      },
+      {
+        "method": "POST",
+        "path": "/api/risk/signal/{signal_id}/acknowledge",
+        "handler": "acknowledge_signal",
+        "tag": "Risk Analysis",
+        "module": "app/api/risk.py"
+      },
+      {
+        "method": "POST",
+        "path": "/api/risk/signal/{signal_id}/resolve",
+        "handler": "resolve_signal",
+        "tag": "Risk Analysis",
+        "module": "app/api/risk.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/vendors",
+        "handler": "list_vendors",
+        "tag": "Vendors",
+        "module": "app/api/vendors.py",
+        "response_model": "VendorListResponse"
+      },
+      {
+        "method": "POST",
+        "path": "/api/vendors",
+        "handler": "create_vendor",
+        "tag": "Vendors",
+        "module": "app/api/vendors.py",
+        "response_model": "VendorResponse",
+        "status_code": 201
+      },
+      {
+        "method": "GET",
+        "path": "/api/vendors/{vendor_id}",
+        "handler": "get_vendor",
+        "tag": "Vendors",
+        "module": "app/api/vendors.py",
+        "response_model": "VendorResponse"
+      },
+      {
+        "method": "PATCH",
+        "path": "/api/vendors/{vendor_id}",
+        "handler": "update_vendor",
+        "tag": "Vendors",
+        "module": "app/api/vendors.py",
+        "response_model": "VendorResponse"
+      },
+      {
+        "method": "GET",
+        "path": "/api/vendors/{vendor_id}/cases",
+        "handler": "get_vendor_cases",
+        "tag": "Vendors",
+        "module": "app/api/vendors.py"
+      },
+      {
+        "method": "POST",
+        "path": "/api/webhooks/n8n",
+        "handler": "n8n_callback",
+        "tag": "Webhooks",
+        "module": "app/api/webhooks.py"
+      },
+      {
+        "method": "GET",
+        "path": "/api/webhooks/n8n/event-types",
+        "handler": "list_allowed_event_types",
+        "tag": "Webhooks",
+        "module": "app/api/webhooks.py"
+      },
+      {
+        "method": "POST",
+        "path": "/api/webhooks/n8n/incident",
+        "handler": "n8n_incident",
+        "tag": "Webhooks",
+        "module": "app/api/webhooks.py"
+      }
+    ]
+  },
+  "rules": {
+    "engine": "backend/app/rules/engine.py",
+    "deterministic": true,
+    "count": 12,
+    "codes": [
+      {
+        "code": "DOCUMENT_MISSING",
+        "class": "MissingDocumentRule",
+        "order": 1
+      },
+      {
+        "code": "DOCUMENT_EXPIRED",
+        "class": "ExpiredDocumentRule",
+        "order": 2
+      },
+      {
+        "code": "TAX_INFORMATION_MISSING",
+        "class": "TaxInformationRule",
+        "order": 3
+      },
+      {
+        "code": "ENTITY_NAME_MISMATCH",
+        "class": "EntityNameConsistencyRule",
+        "order": 4
+      },
+      {
+        "code": "ADDRESS_MISMATCH",
+        "class": "AddressConsistencyRule",
+        "order": 5
+      },
+      {
+        "code": "BANKING_NAME_MISMATCH",
+        "class": "BankingNameConsistencyRule",
+        "order": 6
+      },
+      {
+        "code": "LOW_CONFIDENCE_EXTRACTION",
+        "class": "LowConfidenceExtractionRule",
+        "order": 7
+      },
+      {
+        "code": "EXTRACTION_FAILED",
+        "class": "ExtractionFailureRule",
+        "order": 8
+      },
+      {
+        "code": "INSURANCE_BELOW_MINIMUM",
+        "class": "InsuranceCoverageRule",
+        "order": 9
+      },
+      {
+        "code": "HIGH_RISK_GEOGRAPHY",
+        "class": "HighRiskGeographyRule",
+        "order": 10
+      },
+      {
+        "code": "INCOMPLETE_OWNERSHIP_INFORMATION",
+        "class": "OwnershipDisclosureRule",
+        "order": 11
+      },
+      {
+        "code": "UNUSUAL_PAYMENT_TERMS",
+        "class": "UnusualPaymentTermsRule",
+        "order": 12
+      }
+    ],
+    "blocking_codes": [
+      "DOCUMENT_MISSING",
+      "EXTRACTION_FAILED",
+      "TAX_INFORMATION_MISSING"
+    ],
+    "scoring": "backend/app/rules/risk_scoring.py",
+    "scoring_model": "additive; the score is the sum of the findings a reviewer can read",
+    "severity_route_floor": {
+      "low": "auto_approve",
+      "medium": "compliance_review",
+      "high": "senior_review",
+      "critical": "escalate"
+    },
+    "severity_level_floor": {
+      "low": "low",
+      "medium": "medium",
+      "high": "high",
+      "critical": "critical"
+    },
+    "finding_labels": {
+      "DOCUMENT_MISSING": "Required document not received",
+      "DOCUMENT_EXPIRED": "Document has expired",
+      "DOCUMENT_EXPIRING_SOON": "Document expiring soon",
+      "TAX_INFORMATION_MISSING": "Tax identification missing",
+      "ENTITY_NAME_MISMATCH": "Legal name inconsistency",
+      "ADDRESS_MISMATCH": "Address inconsistency",
+      "BANKING_NAME_MISMATCH": "Bank account holder mismatch",
+      "LOW_CONFIDENCE_EXTRACTION": "Low extraction confidence",
+      "EXTRACTION_FAILED": "Document could not be processed",
+      "INSURANCE_BELOW_MINIMUM": "Insurance below required minimum",
+      "HIGH_RISK_GEOGRAPHY": "High-risk jurisdiction",
+      "INCOMPLETE_OWNERSHIP_INFORMATION": "Beneficial ownership not disclosed",
+      "UNUSUAL_PAYMENT_TERMS": "Unusual payment terms",
+      "INSURANCE_EXPIRY_UNKNOWN": "Insurance expiry undetermined"
+    },
+    "thresholds": {
+      "score": {
+        "auto_approve_max": 25,
+        "low_max": 25,
+        "medium_max": 50,
+        "high_max": 75,
+        "scale_max": 100
+      },
+      "weights": {
+        "RISK_WEIGHT_MISSING_DOCUMENT": 15,
+        "RISK_WEIGHT_EXPIRED_DOCUMENT": 25,
+        "RISK_WEIGHT_EXPIRING_SOON": 10,
+        "RISK_WEIGHT_ENTITY_MISMATCH": 20,
+        "RISK_WEIGHT_BANKING_MISMATCH": 30,
+        "RISK_WEIGHT_LOW_CONFIDENCE": 8,
+        "RISK_WEIGHT_HIGH_RISK_GEOGRAPHY": 15,
+        "RISK_WEIGHT_INCOMPLETE_OWNERSHIP": 15,
+        "RISK_WEIGHT_AI_UNCERTAINTY": 12
+      },
+      "confidence": {
+        "high": 0.9,
+        "medium": 0.75
+      }
+    }
+  },
+  "webhook_contracts": {
+    "case_events": {
+      "method": "POST",
+      "path": "/api/webhooks/n8n",
+      "auth": "Header X-N8N-Secret equals N8N_API_KEY (hmac.compare_digest)",
+      "effect": "Appends exactly one audit event. Cannot mutate case state.",
+      "request_schema": "WebhookPayload",
+      "response_schema": "WebhookAck",
+      "event_types": [
+        "WORKFLOW_TRIGGERED",
+        "WORKFLOW_COMPLETED",
+        "WORKFLOW_FAILED",
+        "NOTIFICATION_SENT",
+        "NOTIFICATION_FAILED",
+        "NOTIFICATION_SKIPPED",
+        "REVIEWER_ASSIGNED",
+        "APPROVAL_OPENED",
+        "SLA_WARNING",
+        "SLA_ESCALATED",
+        "DOCUMENT_PROCESSING_DISPATCHED",
+        "RETRY_EXHAUSTED"
+      ]
+    },
+    "platform_incidents": {
+      "method": "POST",
+      "path": "/api/webhooks/n8n/incident",
+      "auth": "Header X-N8N-Secret equals N8N_API_KEY",
+      "effect": "Appends one platform audit row. case_id is optional.",
+      "request_schema": "WorkflowIncident",
+      "response_schema": "WebhookAck",
+      "event_types": [
+        "WORKFLOW_FAILED",
+        "INTEGRATION_UNREACHABLE",
+        "RETRY_EXHAUSTED",
+        "WEBHOOK_REJECTED"
+      ]
+    },
+    "allowlist_discovery": {
+      "method": "GET",
+      "path": "/api/webhooks/n8n/event-types",
+      "auth": "None (public vocabulary)",
+      "effect": "Returns the closed allowlists so a workflow can be validated before it runs."
+    }
+  },
+  "workflows": [
+    {
+      "file": "case_orchestrator.json",
+      "name": "Vendor Onboarding \u2014 Case Orchestrator",
+      "node_count": 28,
+      "connection_count": 16,
+      "trigger_nodes": [
+        "Case Triggered"
+      ],
+      "node_types": {
+        "n8n-nodes-base.code": 5,
+        "n8n-nodes-base.httpRequest": 15,
+        "n8n-nodes-base.if": 2,
+        "n8n-nodes-base.set": 1,
+        "n8n-nodes-base.stickyNote": 3,
+        "n8n-nodes-base.switch": 1,
+        "n8n-nodes-base.webhook": 1
+      },
+      "settings": {
+        "executionOrder": "v1",
+        "saveManualExecutions": true,
+        "callerPolicy": "workflowsFromSameOwner"
+      },
+      "tags": [
+        {
+          "id": "75f4f332-8bc7-525c-a734-005f44b8a928",
+          "name": "vendor-onboarding"
+        },
+        {
+          "id": "53d08df1-8394-563e-9f69-5820f01e818b",
+          "name": "orchestration"
+        }
+      ],
+      "purpose": "Main end-to-end orchestration. Triggered when a case is ready to be assessed; drives submit, assessment, reviewer resolution, notification and the branch that opens the correct approval. Contains no business logic."
+    },
+    {
+      "file": "document_intake.json",
+      "name": "Vendor Onboarding \u2014 Document Intake",
+      "node_count": 13,
+      "connection_count": 9,
+      "trigger_nodes": [
+        "Document Triggered"
+      ],
+      "node_types": {
+        "n8n-nodes-base.code": 3,
+        "n8n-nodes-base.httpRequest": 6,
+        "n8n-nodes-base.if": 1,
+        "n8n-nodes-base.set": 1,
+        "n8n-nodes-base.stickyNote": 1,
+        "n8n-nodes-base.webhook": 1
+      },
+      "settings": {
+        "executionOrder": "v1",
+        "saveManualExecutions": true,
+        "callerPolicy": "workflowsFromSameOwner"
+      },
+      "tags": [
+        {
+          "id": "75f4f332-8bc7-525c-a734-005f44b8a928",
+          "name": "vendor-onboarding"
+        },
+        {
+          "id": "53d08df1-8394-563e-9f69-5820f01e818b",
+          "name": "orchestration"
+        }
+      ],
+      "purpose": "Async document classification and extraction. Triggered on upload or by a reviewer pressing Re-process; posts to the document service, retries transient failures, records the outcome."
+    },
+    {
+      "file": "error_handler.json",
+      "name": "Vendor Onboarding \u2014 Error Handler",
+      "node_count": 7,
+      "connection_count": 4,
+      "trigger_nodes": [
+        "Error Triggered"
+      ],
+      "node_types": {
+        "n8n-nodes-base.code": 1,
+        "n8n-nodes-base.errorTrigger": 1,
+        "n8n-nodes-base.httpRequest": 3,
+        "n8n-nodes-base.set": 1,
+        "n8n-nodes-base.stickyNote": 1
+      },
+      "settings": {
+        "executionOrder": "v1",
+        "saveManualExecutions": true,
+        "callerPolicy": "workflowsFromSameOwner"
+      },
+      "tags": [
+        {
+          "id": "75f4f332-8bc7-525c-a734-005f44b8a928",
+          "name": "vendor-onboarding"
+        },
+        {
+          "id": "53d08df1-8394-563e-9f69-5820f01e818b",
+          "name": "orchestration"
+        }
+      ],
+      "purpose": "Centralised error handling. Registered as the error workflow for the other three; records a platform incident when any of them exhausts its retries. Does not retry the failed work."
+    },
+    {
+      "file": "sla_escalation.json",
+      "name": "Vendor Onboarding \u2014 SLA Escalation",
+      "node_count": 9,
+      "connection_count": 6,
+      "trigger_nodes": [
+        "Schedule"
+      ],
+      "node_types": {
+        "n8n-nodes-base.code": 2,
+        "n8n-nodes-base.httpRequest": 3,
+        "n8n-nodes-base.if": 1,
+        "n8n-nodes-base.scheduleTrigger": 1,
+        "n8n-nodes-base.set": 1,
+        "n8n-nodes-base.stickyNote": 1
+      },
+      "settings": {
+        "executionOrder": "v1",
+        "saveManualExecutions": true,
+        "callerPolicy": "workflowsFromSameOwner"
+      },
+      "tags": [
+        {
+          "id": "75f4f332-8bc7-525c-a734-005f44b8a928",
+          "name": "vendor-onboarding"
+        },
+        {
+          "id": "53d08df1-8394-563e-9f69-5820f01e818b",
+          "name": "orchestration"
+        }
+      ],
+      "purpose": "Scheduled SLA check. Runs daily; finds cases past their review deadline and records warnings and escalations. Does not define the SLA thresholds."
+    }
+  ],
+  "configuration": {
+    "source": "backend/app/config.py",
+    "secret_variables": [
+      "OPENAI_API_KEY",
+      "SECRET_KEY",
+      "N8N_API_KEY"
+    ],
+    "variables": [
+      {
+        "name": "APP_NAME",
+        "type": "str",
+        "default": "Vendor Onboarding & Risk Orchestrator"
+      },
+      {
+        "name": "APP_VERSION",
+        "type": "str",
+        "default": "1.0.0"
+      },
+      {
+        "name": "DEBUG",
+        "type": "bool",
+        "default": false
+      },
+      {
+        "name": "ENVIRONMENT",
+        "type": "str",
+        "default": "development"
+      },
+      {
+        "name": "DATABASE_URL",
+        "type": "str",
+        "default": "postgresql://vendoruser:vendorpass@postgres:5432/vendordb"
+      },
+      {
+        "name": "SECRET_KEY",
+        "type": "str",
+        "default": "dev-secret-key-change-in-production"
+      },
+      {
+        "name": "API_KEY_HEADER",
+        "type": "str",
+        "default": "X-API-Key"
+      },
+      {
+        "name": "API_KEYS",
+        "type": "str",
+        "default": "demo-api-key-001,demo-api-key-002"
+      },
+      {
+        "name": "ALGORITHM",
+        "type": "str",
+        "default": "HS256"
+      },
+      {
+        "name": "ACCESS_TOKEN_EXPIRE_MINUTES",
+        "type": "int",
+        "default": "<computed>"
+      },
+      {
+        "name": "CORS_ORIGINS",
+        "type": "str",
+        "default": "http://localhost:5173,http://localhost:3000"
+      },
+      {
+        "name": "LLM_PROVIDER",
+        "type": "str",
+        "default": "mock"
+      },
+      {
+        "name": "OPENAI_API_KEY",
+        "type": "Optional[str]",
+        "default": "<computed>"
+      },
+      {
+        "name": "OPENAI_MODEL",
+        "type": "str",
+        "default": "gpt-4o-mini"
+      },
+      {
+        "name": "LLM_MAX_RETRIES",
+        "type": "int",
+        "default": 3
+      },
+      {
+        "name": "LLM_TIMEOUT_SECONDS",
+        "type": "int",
+        "default": 60
+      },
+      {
+        "name": "LLM_TEMPERATURE",
+        "type": "float",
+        "default": 0.1
+      },
+      {
+        "name": "DOCUMENT_STORAGE_PATH",
+        "type": "str",
+        "default": "/app/documents/uploads"
+      },
+      {
+        "name": "MAX_UPLOAD_SIZE_MB",
+        "type": "int",
+        "default": 25
+      },
+      {
+        "name": "ALLOWED_MIME_TYPES",
+        "type": "str",
+        "default": "application/pdf,text/plain,text/csv,application/json,image/png,image/jpeg"
+      },
+      {
+        "name": "CONFIDENCE_HIGH",
+        "type": "float",
+        "default": 0.9
+      },
+      {
+        "name": "CONFIDENCE_MEDIUM",
+        "type": "float",
+        "default": 0.75
+      },
+      {
+        "name": "RISK_WEIGHT_MISSING_DOCUMENT",
+        "type": "int",
+        "default": 15
+      },
+      {
+        "name": "RISK_WEIGHT_EXPIRED_DOCUMENT",
+        "type": "int",
+        "default": 25
+      },
+      {
+        "name": "RISK_WEIGHT_EXPIRING_SOON",
+        "type": "int",
+        "default": 10
+      },
+      {
+        "name": "RISK_WEIGHT_ENTITY_MISMATCH",
+        "type": "int",
+        "default": 20
+      },
+      {
+        "name": "RISK_WEIGHT_BANKING_MISMATCH",
+        "type": "int",
+        "default": 30
+      },
+      {
+        "name": "RISK_WEIGHT_LOW_CONFIDENCE",
+        "type": "int",
+        "default": 8
+      },
+      {
+        "name": "RISK_WEIGHT_HIGH_RISK_GEOGRAPHY",
+        "type": "int",
+        "default": 15
+      },
+      {
+        "name": "RISK_WEIGHT_INCOMPLETE_OWNERSHIP",
+        "type": "int",
+        "default": 15
+      },
+      {
+        "name": "RISK_WEIGHT_AI_UNCERTAINTY",
+        "type": "int",
+        "default": 12
+      },
+      {
+        "name": "RISK_THRESHOLD_LOW",
+        "type": "int",
+        "default": 25
+      },
+      {
+        "name": "RISK_THRESHOLD_MEDIUM",
+        "type": "int",
+        "default": 50
+      },
+      {
+        "name": "RISK_THRESHOLD_HIGH",
+        "type": "int",
+        "default": 75
+      },
+      {
+        "name": "RULE_INSURANCE_MIN_COVERAGE",
+        "type": "int",
+        "default": 2000000
+      },
+      {
+        "name": "RULE_INSURANCE_EXPIRY_WARNING_DAYS",
+        "type": "int",
+        "default": 30
+      },
+      {
+        "name": "RULE_VENDOR_NAME_SIMILARITY_THRESHOLD",
+        "type": "float",
+        "default": 0.92
+      },
+      {
+        "name": "RULE_AUTO_APPROVE_MAX_RISK",
+        "type": "int",
+        "default": 25
+      },
+      {
+        "name": "N8N_WEBHOOK_URL",
+        "type": "str",
+        "default": "http://n8n:5678"
+      },
+      {
+        "name": "N8N_API_KEY",
+        "type": "str",
+        "default": "n8n-api-key"
+      },
+      {
+        "name": "ERP_API_URL",
+        "type": "str",
+        "default": "http://mock-erp:8001"
+      },
+      {
+        "name": "COMPLIANCE_API_URL",
+        "type": "str",
+        "default": "http://mock-compliance:8002"
+      },
+      {
+        "name": "NOTIFICATION_API_URL",
+        "type": "str",
+        "default": "http://mock-notifications:8003"
+      },
+      {
+        "name": "LOG_LEVEL",
+        "type": "str",
+        "default": "INFO"
+      },
+      {
+        "name": "LOG_FORMAT",
+        "type": "str",
+        "default": "json"
+      }
+    ]
+  },
+  "verification": {
+    "backend": "python3 backend/check_static.py",
+    "frontend": "python3 frontend/check_static.py",
+    "contracts": "python3 tools/check_contracts.py",
+    "workflows": "python3 n8n/build_workflows.py --check",
+    "spec": "python3 tools/build_project_spec.py --check"
+  },
+  "constraints": {
+    "data": "Synthetic only. No real PII, banking details, or company data.",
+    "ai_authority": "LLM cannot approve, reject, or take an irreversible action.",
+    "ai_metadata": "Structured reasoning summaries are stored; hidden chain-of-thought is not.",
+    "secrets": "Environment variables only. No keys in source or in workflow JSON.",
+    "thresholds": "Prototype configuration, not scientifically optimal values.",
+    "metrics": "Only numbers computed from the synthetic evaluation dataset."
+  }
+}

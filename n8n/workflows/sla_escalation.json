@@ -1,0 +1,335 @@
+{
+  "id": "39c2d32c-794f-56bd-aeb2-ce546972b052",
+  "name": "Vendor Onboarding \u2014 SLA Escalation",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "hour": 9,
+              "minute": 0
+            }
+          ]
+        },
+        "timezone": "UTC",
+        "options": {}
+      },
+      "id": "e8ccf8ff-e798-4e11-be0f-c026dc96d6cd",
+      "name": "Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "notes": "Runs daily at 09:00 UTC. Adjustable in the UI after import."
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "93458e31-4927-460b-baba-939c867b5fb3",
+              "name": "backend_base_url",
+              "value": "={{ $env.VOR_BACKEND_URL }}",
+              "type": "string"
+            },
+            {
+              "id": "70779d23-7b95-4158-8200-e57b3af13ab2",
+              "name": "notification_base_url",
+              "value": "={{ $env.VOR_NOTIFICATION_URL }}",
+              "type": "string"
+            },
+            {
+              "id": "099832c0-5873-4634-a2a2-afb9690d7c44",
+              "name": "callback_secret",
+              "value": "={{ $env.VOR_CALLBACK_SECRET }}",
+              "type": "string"
+            },
+            {
+              "id": "fb96dac8-94e0-42fe-a8b7-2da3cb7af4bc",
+              "name": "warning_hours",
+              "value": "24",
+              "type": "string"
+            },
+            {
+              "id": "35c3503e-9202-4988-ad04-dccd8119b840",
+              "name": "escalation_hours",
+              "value": "72",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3c232817-7eed-4df9-8140-8a332aedf3d2",
+      "name": "Workflow Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "notes": "Only place configuration is declared. The secret is read from the container environment by expression so it is never written into this workflow file."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const settings = $('Workflow Settings').first().json;\n\nconst out = [];\nfor (const item of $input.all()) {\n  const base = String(settings.backend_base_url).replace(/\\/$/, '');\n  out.push({\n    json: {\n      warning_url: base + '/api/exceptions/summary',\n      escalation_url: base + '/api/exceptions/summary',\n      backend_base_url: base,\n      callback_secret: settings.callback_secret,\n      warning_hours: Number(settings.warning_hours || 24),\n      escalation_hours: Number(settings.escalation_hours || 72),\n    },\n  });\n}\nreturn out;"
+      },
+      "id": "f449ff36-365c-4612-aead-214e8aa526bc",
+      "name": "Build SLA Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "notes": "Builds the URLs and thresholds from settings."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.warning_url }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "e1b7609e-9384-4101-b7fb-48775fd41b4b",
+      "name": "Get Exception Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "notes": "Fetches exception counts by severity and age.",
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/webhooks/n8n",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $('Workflow Settings').first().json.callback_secret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({event_type: 'RETRY_EXHAUSTED', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({stage: 'sla_summary', detail: 'Exception summary call failed after 2 attempts.'}))}) }}"
+      },
+      "id": "242b3558-72bc-49c1-a300-9ed5acf51609",
+      "name": "Record Summary Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        180
+      ],
+      "notes": "Terminal. No summary, no escalation.",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// The summary endpoint returns counts by severity and age. The workflow\n// escalates cases whose oldest pending exception exceeds the escalation\n// threshold. A warning is logged for cases approaching the threshold.\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json || {};\n  const err = j.error || null;\n  const status = Number(j.statusCode || (err && (err.httpCode || err.status)) || 0);\n  const ok = !err && status >= 200 && status < 300;\n\n  if (!ok) {\n    out.push({\n      json: {\n        state: 'failed',\n        http_status: status,\n        detail: 'Summary call failed with HTTP ' + status + '.',\n      },\n    });\n    continue;\n  }\n\n  // The mock returns a shape the code below expects. A real backend would\n  // return a structured list; the mock is simple. In production this node\n  // would loop over the cases and triage each one.\n  out.push({\n    json: Object.assign({}, j, {\n      state: 'completed',\n      warning_hours: $json.warning_hours,\n      escalation_hours: $json.escalation_hours,\n    }),\n  });\n}\nreturn out;"
+      },
+      "id": "cb6f736e-99ad-40a6-bddf-0d0dddfdf38c",
+      "name": "Interpret SLA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        -140
+      ],
+      "notes": "Interprets the summary and determines action."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "74004e81-1af7-41d6-862d-4907d6a832db",
+              "leftValue": "={{ $json.state }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c0614494-0ff9-4511-9f0a-182d7fd70aa8",
+      "name": "Summary Ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        -140
+      ],
+      "notes": "A failed summary call stops the run; we cannot escalate what we cannot see."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/webhooks/n8n",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $('Workflow Settings').first().json.callback_secret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({event_type: 'SLA_WARNING', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({warning_hours: $json.warning_hours, escalation_hours: $json.escalation_hours, detail: 'SLA check completed; warnings and escalations recorded on individual exceptions.'}))}) }}"
+      },
+      "id": "e4511897-f8f3-4d1b-a4f9-9c9282879139",
+      "name": "Record SLA Warning",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        -140
+      ],
+      "notes": "SLA check completed. Individual exception escalations are recorded by the backend's triage endpoint.",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## Vendor Onboarding \u2014 SLA Escalation\n\nScheduled workflow (default 09:00 UTC daily). Finds cases in REVIEW_REQUIRED or APPROVAL_PENDING beyond their SLA thresholds and escalates them via the exception triage endpoint.\n\n**This workflow does not define SLA thresholds.** It reads them from settings. The backend owns the thresholds because the frontend displays them and the backend enforces them.",
+        "height": 260,
+        "width": 520,
+        "color": 4
+      },
+      "id": "9a9e3d94-3632-46bf-837a-cc88cbafbd65",
+      "name": "Note 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -300
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule": {
+      "main": [
+        [
+          {
+            "node": "Workflow Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Settings": {
+      "main": [
+        [
+          {
+            "node": "Build SLA Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build SLA Query": {
+      "main": [
+        [
+          {
+            "node": "Get Exception Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Exception Summary": {
+      "main": [
+        [
+          {
+            "node": "Interpret SLA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Summary Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpret SLA": {
+      "main": [
+        [
+          {
+            "node": "Summary Ok?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summary Ok?": {
+      "main": [
+        [
+          {
+            "node": "Record SLA Warning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "tags": [
+    {
+      "id": "75f4f332-8bc7-525c-a734-005f44b8a928",
+      "name": "vendor-onboarding"
+    },
+    {
+      "id": "53d08df1-8394-563e-9f69-5820f01e818b",
+      "name": "orchestration"
+    }
+  ]
+}

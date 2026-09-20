@@ -1,0 +1,412 @@
+/* Shared UI primitive styles - extends the design system in index.css.
+ *
+ * index.css owns the palette, spacing scale and the base card/table/badge
+ * looks. This file adds the primitives introduced by components/ui, plus the
+ * few utility classes those primitives rely on.
+ */
+
+/* ==================== Utilities ==================== */
+
+.text-center { text-align: center; }
+.py-8 { padding-top: var(--space-8); padding-bottom: var(--space-8); }
+.text-right { text-align: right; }
+.text-lg { font-size: var(--text-lg); }
+.font-semibold { font-weight: 600; }
+.w-full { width: 100%; }
+.stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.row { display: flex; align-items: center; gap: var(--space-2); }
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.wrap { flex-wrap: wrap; }
+.mono-sm {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nowrap { white-space: nowrap; }
+
+.spin {
+  animation: ui-spin 0.9s linear infinite;
+}
+
+@keyframes ui-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation: none; }
+}
+
+/* ==================== Badge additions ==================== */
+
+.badge-neutral {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
+.badge-info {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.badge-success {
+  background: var(--color-low-bg);
+  color: var(--color-low);
+}
+
+/* ==================== Card additions ==================== */
+
+.card-subtitle {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* ==================== Page header ==================== */
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.page-header-text {
+  min-width: 0;
+}
+
+.page-breadcrumb {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.page-title {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+  line-height: 1.25;
+}
+
+.page-description {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: var(--space-1) 0 0;
+  max-width: 78ch;
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* ==================== Metric cards ==================== */
+
+.metric-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.metric-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.metric-card .metric-label {
+  margin-top: 0;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.metric-icon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.metric-hint {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* Left accent for metrics that carry a severity meaning. */
+.metric-critical { border-left: 3px solid var(--color-critical); }
+.metric-high { border-left: 3px solid var(--color-high); }
+.metric-medium { border-left: 3px solid var(--color-medium); }
+.metric-low { border-left: 3px solid var(--color-low); }
+.metric-info { border-left: 3px solid var(--color-primary); }
+
+.metric-critical .metric-value { color: var(--color-critical); }
+.metric-high .metric-value { color: var(--color-high); }
+
+/* ==================== State views ==================== */
+
+.state-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  color: var(--color-text-muted);
+  text-align: center;
+  font-size: var(--text-sm);
+}
+
+.state-view strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.state-description {
+  max-width: 52ch;
+}
+
+.state-action {
+  margin-top: var(--space-1);
+}
+
+.state-error {
+  color: var(--color-critical);
+}
+
+.state-error strong {
+  color: var(--color-critical);
+}
+
+/* ==================== Tabs additions ==================== */
+
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  padding: 0 6px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tab.active .tab-count {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+/* ==================== Modal ==================== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(17 24 39 / 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-8) var(--space-4);
+  z-index: 500;
+  overflow-y: auto;
+}
+
+.modal {
+  width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--space-8) * 2);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin: 0;
+}
+
+.modal-body {
+  padding: var(--space-5);
+  overflow-y: auto;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+/* ==================== Definition list ==================== */
+
+.definition-list {
+  margin: 0;
+  display: grid;
+  gap: 0;
+}
+
+.definition-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.definition-row:last-child {
+  border-bottom: none;
+}
+
+.definition-row dt {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  padding-top: 2px;
+}
+
+.definition-row dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+/* ==================== Progress ==================== */
+
+.progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-border);
+  overflow: hidden;
+  min-width: 60px;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-primary);
+  transition: width 0.2s ease;
+}
+
+.progress-danger { background: var(--color-critical); }
+.progress-warning { background: var(--color-high); }
+.progress-success { background: var(--color-low); }
+
+.progress-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ==================== Callouts ==================== */
+
+.callout {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  font-size: var(--text-sm);
+  align-items: flex-start;
+}
+
+.callout svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.callout-critical {
+  background: var(--color-critical-bg);
+  border-color: var(--color-critical-border);
+  color: var(--color-critical);
+}
+
+.callout-warning {
+  background: var(--color-high-bg);
+  border-color: var(--color-high-border);
+  color: var(--color-high);
+}
+
+.callout-info {
+  background: var(--color-primary-bg);
+  border-color: var(--color-medium-border);
+  color: var(--color-primary);
+}
+
+.callout-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.callout-body {
+  color: var(--color-text);
+}
+
+.callout-critical .callout-body,
+.callout-warning .callout-body {
+  color: var(--color-text);
+}

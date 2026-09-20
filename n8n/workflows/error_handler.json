@@ -1,0 +1,253 @@
+{
+  "id": "af48ee18-5d36-5562-9181-05b13cc77833",
+  "name": "Vendor Onboarding \u2014 Error Handler",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "393e42d5-334b-400e-a2ed-c2b73c9bea0b",
+      "name": "Error Triggered",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "notes": "Registered as the error workflow for the orchestrator, document intake, and SLA escalation workflows. Receives the failed execution's context when any node exhausts its retries."
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0fa24f37-1265-4c5b-8c17-f186d360681c",
+              "name": "backend_base_url",
+              "value": "={{ $env.VOR_BACKEND_URL }}",
+              "type": "string"
+            },
+            {
+              "id": "388ae8e0-af2a-4ff1-8b45-152a3b116215",
+              "name": "notification_base_url",
+              "value": "={{ $env.VOR_NOTIFICATION_URL }}",
+              "type": "string"
+            },
+            {
+              "id": "5a1ab694-04c3-4898-9b97-1e62478d03a5",
+              "name": "callback_secret",
+              "value": "={{ $env.VOR_CALLBACK_SECRET }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4de51e5f-ffb4-47af-b8f0-852ec24f124f",
+      "name": "Workflow Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "notes": "Only place configuration is declared. The secret is read from the container environment by expression so it is never written into this workflow file."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// The error trigger provides a structured payload describing what failed.\n// This node normalises it into the incident schema.\nconst execution = $input.first().json;\nconst workflowName = execution.workflow?.name || 'unknown';\nconst executionId = execution.id || 'unknown';\nconst nodeName = execution.node?.name || 'unknown';\nconst nodeType = execution.node?.type || 'unknown';\nconst errorMessage = execution.error?.message || String(execution.error) || 'unknown error';\nconst lastNode = execution.lastNode || nodeName;\n\nconst out = [{\n  json: {\n    event_type: 'WORKFLOW_FAILED',\n    workflow: workflowName,\n    execution_id: executionId,\n    node: lastNode,\n    message: errorMessage,\n    data: {\n      node_type: nodeType,\n      input_summary: execution.inputData ? Object.keys(execution.inputData).length : 0,\n    },\n    // The error trigger payload does not include a case_id. If the failed\n    // workflow had one in its data, it would be in execution.data.case_id.\n    case_id: execution.data?.case_id || null,\n  },\n}];\nreturn out;"
+      },
+      "id": "3e1866bd-5de9-4cc1-b7ab-42658870b9e2",
+      "name": "Interpret Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "notes": "Normalises the error trigger payload into the incident schema."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/webhooks/n8n/incident",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $('Workflow Settings').first().json.callback_secret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "d37285d5-a689-4f38-8961-b8d5c2d9bab4",
+      "name": "Record Incident",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "notes": "Writes a platform incident row. No case_id means it appears in the recent-events view and no case timeline, which is correct for an orchestration failure that never resolved a case.",
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/webhooks/n8n",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $('Workflow Settings').first().json.callback_secret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({event_type: 'RETRY_EXHAUSTED', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({stage: 'error_handler', detail: 'Incident recording failed after 3 attempts; the original workflow failure is now invisible in the audit trail.'}))}) }}"
+      },
+      "id": "ccc31d2d-0585-4194-ab74-94f73c5c7b29",
+      "name": "Record Incident Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        180
+      ],
+      "notes": "Terminal. If even the error handler cannot record, the failure is silent.",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Workflow Settings').first().json.backend_base_url }}/api/webhooks/n8n",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $('Workflow Settings').first().json.callback_secret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({event_type: 'WORKFLOW_COMPLETED', case_id: Number($json.case_id), timestamp: new Date().toISOString(), data: Object.assign({_workflow: $workflow.name, _execution_id: $execution.id}, ({outcome: 'incident_recorded', workflow: $json.workflow, node: $json.node, case_id: $json.case_id}))}) }}"
+      },
+      "id": "dfbd3604-e744-46bb-943b-026b24edf401",
+      "name": "Record Incident Success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        -140
+      ],
+      "notes": "Terminal success. The platform incident is visible in the recent-events view.",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## Vendor Onboarding \u2014 Error Handler\n\nRegistered as the error workflow for the other orchestration workflows. When any node in those workflows exhausts its retries, this workflow receives the execution context and records a platform incident.\n\n**This workflow does not retry the failed work.** It records the fact that the orchestration layer itself failed, so platform operators can see it in the recent-events view. The original work must be retried by a human (or by re-triggering the upstream webhook) once the root cause is fixed.",
+        "height": 280,
+        "width": 520,
+        "color": 4
+      },
+      "id": "323a1b46-ec5d-4267-b25c-9aa093a6859d",
+      "name": "Note 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -260
+      ]
+    }
+  ],
+  "connections": {
+    "Error Triggered": {
+      "main": [
+        [
+          {
+            "node": "Workflow Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Settings": {
+      "main": [
+        [
+          {
+            "node": "Interpret Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpret Error": {
+      "main": [
+        [
+          {
+            "node": "Record Incident",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Incident": {
+      "main": [
+        [
+          {
+            "node": "Record Incident Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Incident Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "tags": [
+    {
+      "id": "75f4f332-8bc7-525c-a734-005f44b8a928",
+      "name": "vendor-onboarding"
+    },
+    {
+      "id": "53d08df1-8394-563e-9f69-5820f01e818b",
+      "name": "orchestration"
+    }
+  ]
+}
