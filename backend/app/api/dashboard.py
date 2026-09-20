@@ -51,6 +51,17 @@ REVIEW_STATUSES = {
     WorkflowStatus.BLOCKED,
 }
 
+# How long the cases above have been sitting. Ordered, with an open-ended top
+# band and a half-open comparison, so no case can fall between two buckets or
+# be dropped. Measured from ``updated_at``, which is the last time anything
+# moved on the case -- the closest thing we hold to "when it started waiting".
+AGE_BANDS = [
+    ("under_1_day", None, 1.0),
+    ("1_to_3_days", 1.0, 3.0),
+    ("3_to_7_days", 3.0, 7.0),
+    ("over_7_days", 7.0, None),
+]
+
 METRIC_DEFINITIONS: dict[str, str] = {
     "total_vendors": "All vendor records, in any status. Demo Dataset.",
     "active_cases": "Onboarding cases not yet complete or rejected.",
@@ -72,6 +83,11 @@ METRIC_DEFINITIONS: dict[str, str] = {
     ),
     "cases_this_month": "Cases created since the first of the current month.",
     "completed_this_month": "Cases completed since the first of the current month.",
+    "waiting_by_age": (
+        "How long the cases waiting on a person have been waiting, measured "
+        "from the last time anything moved on them. Only cases in review, "
+        "approval or blocked are counted."
+    ),
 }
 
 
@@ -137,10 +153,39 @@ async def get_dashboard(db: AsyncSession = Depends(get_db)) -> dict:
         "by_status": by_status,
         "risk_distribution": risk_distribution,
         "exceptions_by_severity": exception_counts,
+        "waiting_by_age": await _waiting_by_age(db),
         "needs_attention": needs_attention,
         "definitions": METRIC_DEFINITIONS,
         "dataset_label": "Demo Dataset - synthetic vendors, no real organisations.",
     }
+
+
+async def _waiting_by_age(db: AsyncSession) -> dict[str, int]:
+    """Bucket the cases that are waiting on a person by how long they have waited.
+
+    Counts are taken over every case in a review status, not just the ten
+    shown in ``needs_attention``, so the distribution describes the whole
+    queue rather than the top of it.
+    """
+    now = datetime.utcnow()
+    rows = await db.execute(
+        select(OnboardingCase.updated_at).where(
+            OnboardingCase.workflow_status.in_(list(REVIEW_STATUSES))
+        )
+    )
+
+    counts = {key: 0 for key, _, _ in AGE_BANDS}
+    for (updated_at,) in rows.all():
+        if updated_at is None:
+            continue
+        # Stored timestamps are naive UTC, matching datetime.utcnow().
+        days = (now - updated_at).total_seconds() / 86400.0
+        for key, low, high in AGE_BANDS:
+            if (low is None or days >= low) and (high is None or days < high):
+                counts[key] += 1
+                break
+
+    return counts
 
 
 async def _compute_metrics(db: AsyncSession) -> dict:

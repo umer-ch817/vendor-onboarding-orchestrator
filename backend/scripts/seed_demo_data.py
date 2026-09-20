@@ -509,6 +509,10 @@ async def seed_all() -> None:
         # 6. Create some resolved exceptions
         await create_resolved_exceptions(db, users)
 
+        # 7. Give the seeded data a history, so age and throughput mean
+        #    something. Timestamps only -- never the state computed above.
+        await backdate_demo_timelines(db)
+
         await db.commit()
         logger.info("Demo data seed completed successfully")
 
@@ -658,6 +662,102 @@ async def create_vendor_case_docs(
                 vendor.legal_name, scenario["name"], case.case_number, len(doc_types))
 
 
+async def backdate_demo_timelines(db: AsyncSession, history_days: int = 21) -> None:
+    """Spread the seeded timestamps over the recent past.
+
+    Every row is inserted with created_at = now(), so a freshly seeded
+    database looks like it was switched on this morning. Nothing has any
+    history: "cases this month" equals "every case", every case is under a
+    day old, and any view of age or throughput collapses to a single bar.
+    Fine for a smoke test, useless for a demo.
+
+    Runs last, after assessments and approvals, so it only moves timestamps --
+    never the state those steps produced. A case keeps the status, score and
+    findings it was given; it just looks like it got there over a few weeks.
+    """
+    now = datetime.utcnow()
+
+    cases = (
+        await db.execute(select(OnboardingCase).order_by(OnboardingCase.id))
+    ).scalars().all()
+    if not cases:
+        return
+
+    windows: dict[int, tuple[datetime, datetime]] = {}
+
+    for case in cases:
+        age_days = random.uniform(0.5, history_days)
+        created_at = now - timedelta(days=age_days)
+
+        # Last touched somewhere between creation and now, so "time waiting"
+        # ranges from a few hours to a couple of weeks. That spread is what
+        # makes an ageing view mean anything.
+        progress = random.uniform(0.25, 0.85)
+        updated_at = created_at + timedelta(days=age_days * progress)
+
+        case.created_at = created_at
+        case.updated_at = updated_at
+        windows[case.id] = (created_at, updated_at)
+
+    # Vendors predate the case opened against them.
+    cases_by_vendor: dict[int, list[int]] = {}
+    for case in cases:
+        cases_by_vendor.setdefault(case.vendor_id, []).append(case.id)
+
+    vendors = (await db.execute(select(Vendor))).scalars().all()
+    for vendor in vendors:
+        vendor_windows = [
+            windows[cid] for cid in cases_by_vendor.get(vendor.id, []) if cid in windows
+        ]
+        if not vendor_windows:
+            continue
+        vendor.created_at = min(w[0] for w in vendor_windows) - timedelta(
+            days=random.uniform(1, 25)
+        )
+        vendor.updated_at = vendor.created_at
+
+    # Documents arrive shortly after the case opens.
+    documents = (await db.execute(select(Document))).scalars().all()
+    for document in documents:
+        window = windows.get(document.case_id)
+        if not window:
+            continue
+        start, end = window
+        span = (end - start).total_seconds()
+        document.uploaded_at = start + timedelta(seconds=span * random.uniform(0.05, 0.6))
+
+    # Audit events and assessments land inside their case's window, kept in
+    # their original order so the Story timeline still reads forwards.
+    events = (
+        await db.execute(select(AuditEvent).order_by(AuditEvent.id))
+    ).scalars().all()
+    by_case: dict[int, list[AuditEvent]] = {}
+    for event in events:
+        by_case.setdefault(event.case_id, []).append(event)
+
+    for case_id, case_events in by_case.items():
+        window = windows.get(case_id)
+        if not window:
+            continue
+        start, end = window
+        span = (end - start).total_seconds() or 1.0
+        step = span / (len(case_events) + 1)
+        for index, event in enumerate(case_events, start=1):
+            event.timestamp = start + timedelta(seconds=step * index)
+
+    assessments = (await db.execute(select(RiskAssessment))).scalars().all()
+    for assessment in assessments:
+        window = windows.get(assessment.case_id)
+        if not window:
+            continue
+        start, end = window
+        span = (end - start).total_seconds()
+        assessment.created_at = start + timedelta(seconds=span * random.uniform(0.6, 0.95))
+
+    await db.flush()
+    logger.info("Backdated %d cases over the past %d days", len(cases), history_days)
+
+
 async def run_assessments(db: AsyncSession) -> None:
     """Run the assessment pipeline on all submitted cases."""
     result = await db.execute(
@@ -792,9 +892,23 @@ async def create_resolved_exceptions(db: AsyncSession, users: list[User]) -> Non
 
 if __name__ == "__main__":
     import os
+    import sys
     os.environ.setdefault("DATABASE_URL", "postgresql://vendoruser:vendorpass@localhost:5432/vendordb")
     os.environ.setdefault("LLM_PROVIDER", "mock")
 
-    asyncio.run(seed_all())
-    print("✅ Demo data seeded successfully!")
-    print("Not idempotent: truncate before re-running (see RUNBOOK.md).")
+    if "--backdate-only" in sys.argv:
+        # Refresh the timestamps alone, without touching any state. Useful
+        # after a reseed, or to give an existing database a history so that
+        # age-based views have something to show.
+
+        async def _backdate_only() -> None:
+            async with async_session_maker() as db:
+                await backdate_demo_timelines(db)
+                await db.commit()
+
+        asyncio.run(_backdate_only())
+        print("Demo timelines backdated.")
+    else:
+        asyncio.run(seed_all())
+        print("Demo data seeded successfully!")
+        print("Not idempotent: truncate before re-running (see RUNBOOK.md).")
